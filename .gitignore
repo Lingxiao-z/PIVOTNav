@@ -14,8 +14,8 @@ __pycache__/
 *.gif
 *.bag
 *.gz
-models/
-weights/
+modules/*/weights/*
+!modules/*/weights/.gitkeep
 modules/*/data/raw/*
 modules/*/data/processed/*
 !modules/*/data/raw/.gitkeep

@@ -6,7 +6,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-ROOT = Path(__file__).resolve().parent / "_impl"
+ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 from erp_projection import PerspectiveViewSpec, project
 

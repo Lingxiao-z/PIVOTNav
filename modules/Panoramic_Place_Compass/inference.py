@@ -11,8 +11,7 @@ from .model import CompassOutput
 
 
 ROOT = Path(__file__).resolve().parent
-IMPL = ROOT / "_impl"
-for path in (IMPL, IMPL / "pano_vpr_v2", IMPL / "r363_python"):
+for path in (ROOT, ROOT / "pano_vpr_v2", ROOT / "bearing"):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
@@ -42,7 +41,8 @@ class PanoramicPlaceCompass:
     def _load(self) -> None:
         import torch
 
-        dino_checkout = ROOT.parent / "Navigable_Curiosity_Field" / "_impl" / "dinov2"
+        repo_root = ROOT.parent.parent
+        dino_checkout = repo_root / "third_party" / "dinov2"
         os.environ.setdefault("PANORAMIC_VPR_DINOV2_CHECKOUT", str(dino_checkout))
         os.environ.setdefault(
             "PANORAMIC_VPR_DINOV2_WEIGHT",

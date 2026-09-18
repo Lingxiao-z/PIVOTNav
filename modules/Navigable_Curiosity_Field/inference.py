@@ -8,8 +8,8 @@ import numpy as np
 
 
 ROOT = Path(__file__).resolve().parent
-IMPL = ROOT / "_impl"
-for _path in (IMPL,):
+IMPL = ROOT
+for _path in (ROOT, ROOT / "panorama_fs"):
     if str(_path) not in sys.path:
         sys.path.insert(0, str(_path))
 
@@ -32,7 +32,7 @@ class NavigableCuriosityField:
         from panorama_fs.dino_fgfs_revision3 import RevisedDINOv2PanoramaFGFSV3
         from panorama_fs.dino_fgfs_revision3_b2 import RevisedDINOv2PanoramaFGFSV3LastBlockB2
 
-        repository = str(IMPL)
+        repository = str(ROOT.parent.parent / "third_party" / "dinov2")
         dino_weight = self.weights_root / "dinov2/dinov2_vits14_pretrain.pth"
         checkpoint = self.weights_root / "fs/step_019000.pt"
         self.backbone = torch.hub.load(

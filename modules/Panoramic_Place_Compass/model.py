@@ -1,5 +1,7 @@
 """Public model metadata for the Panoramic Place Compass."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 
 
@@ -10,4 +12,3 @@ class CompassOutput:
     bearing_deg: float
     arrival_candidate: bool
     arrival_confirmed: bool
-
