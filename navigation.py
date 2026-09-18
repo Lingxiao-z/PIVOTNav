@@ -22,6 +22,7 @@ class NavigationSystem:
         self.topology = topology
         self.curiosity = curiosity
         self.step_count = 0
+        self.heading_deg = 0.0
 
     @classmethod
     def from_habitat_gs(cls, config: dict[str, Any], scene: Path, goal: Path) -> "NavigationSystem":
@@ -50,8 +51,10 @@ class NavigationSystem:
                 self.topology.select_candidate_frontier(node_id, selection)
                 if hasattr(self.adapter, "begin_candidate_frontier"):
                     self.adapter.begin_candidate_frontier()
+            self.config["current_heading_deg"] = self.heading_deg
             decision = self.topology.command(rgb, distances, goal, self.config)
             rgb, distances, reached = self.adapter.step(decision[0], decision[1])
+            self.heading_deg = (self.heading_deg - float(decision[1]) * float(self.config.get("control_dt_s", 0.25)) * 180.0 / np.pi + 180.0) % 360.0 - 180.0
             if reached:
                 self.topology.promote_candidate_frontier(rgb, distances)
             result.update(steps=self.step_count, regular_nodes=self.topology.node_count,

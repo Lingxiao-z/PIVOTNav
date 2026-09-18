@@ -64,7 +64,7 @@ class TopologicalBeliefCascade:
         selected = self.graph.frontiers.get(self.graph.selected_frontier or "")
         if selected is None:
             return 0.0, 0.0
-        bearing = float(selected.sector * 30.0)
+        bearing = float(selected.sector * 30.0) - float(config.get("current_heading_deg", 0.0))
         if self.graph.current_node is not None and selected.parent_node != self.graph.current_node:
             bearing = self.compass.command_bearing(rgb, selected.parent_node)
         from modules.Navigable_Curiosity_Field.inference import NavigableCuriosityField
