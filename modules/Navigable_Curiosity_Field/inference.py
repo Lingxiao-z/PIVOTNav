@@ -9,7 +9,7 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parent
 IMPL = ROOT / "_impl"
-for _path in (IMPL, IMPL / "dinov2"):
+for _path in (IMPL,):
     if str(_path) not in sys.path:
         sys.path.insert(0, str(_path))
 
