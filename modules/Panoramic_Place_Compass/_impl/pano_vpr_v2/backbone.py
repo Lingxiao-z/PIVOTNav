@@ -70,6 +70,8 @@ def sha256_tree(root: Path) -> str:
 
 
 def _git_head(path: Path) -> str | None:
+    if not (path / ".git").exists():
+        return None
     try:
         return subprocess.check_output(
             ["git", "-C", str(path), "rev-parse", "HEAD"],
