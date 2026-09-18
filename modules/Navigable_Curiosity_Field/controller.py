@@ -37,10 +37,10 @@ class OmniGuardDistanceController:
             theta_goal_rad=float(goal_heading_rad),
             observed_angle_mask=geometry.processed.observed_angle_mask,
             processed=geometry.processed,
-            goal_distance_m=999.0,
-            point_goal_active=False,
+            goal_distance_m=2.0,
+            point_goal_active=True,
         )
-        linear, angular = self.controller.compute_control_from_scoring(scoring=scoring, goal_distance_m=999.0)
+        linear, angular = self.controller.compute_control_from_scoring(scoring=scoring, goal_distance_m=2.0)
         return float(linear), float(angular), {
             "selected_reason": scoring.selected_reason,
             "selected_mode": scoring.selected_mode,

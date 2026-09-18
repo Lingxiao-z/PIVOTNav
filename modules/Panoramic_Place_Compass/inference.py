@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import sys
+import hashlib
 from pathlib import Path
 from typing import Any
 
@@ -36,6 +37,13 @@ class PanoramicPlaceCompass:
         self.geometry = None
         self.arrival_state = None
         self._evidence_counter = 0
+        self._goal_strong_geometry_streak = 0
+        self._goal_last_candidate = False
+        self._goal_verification_active = False
+        self._goal_verification_frames = 0
+        self._goal_reject_cooldown = 0
+        self._encoding_cache: dict[str, Any] = {}
+        self._goal_encoding: Any | None = None
         self.nodes: dict[int, dict[str, Any]] = {}
         if self.weights_root:
             self._load()
@@ -73,7 +81,16 @@ class PanoramicPlaceCompass:
     def encode(self, rgb: np.ndarray) -> Any:
         if self.runtime is None:
             return np.asarray(rgb)
-        return self.runtime.encode_panorama(_prepare(rgb))
+        value = np.ascontiguousarray(np.asarray(rgb)[..., :3].astype(np.uint8, copy=False))
+        key = hashlib.sha1(value.tobytes()).hexdigest()
+        cached = self._encoding_cache.get(key)
+        if cached is None:
+            cached = self.runtime.encode_panorama(_prepare(value))
+            # Keep a small bounded cache for same-frame goal/control reuse.
+            if len(self._encoding_cache) >= 32:
+                self._encoding_cache.pop(next(iter(self._encoding_cache)))
+            self._encoding_cache[key] = cached
+        return cached
 
     def add_node(self, node_id: int, rgb: np.ndarray) -> None:
         self.nodes[int(node_id)] = {"rgb": np.asarray(rgb)[..., :3].copy(), "encoding": self.encode(rgb)}
@@ -95,7 +112,9 @@ class PanoramicPlaceCompass:
         if self.runtime is None:
             return {"similarity": 0.0, "bearing_deg": 0.0, "arrival_candidate": False, "arrival_confirmed": False}
         current = self.encode(current_rgb)
-        goal = self.encode(goal_rgb)
+        if self._goal_encoding is None:
+            self._goal_encoding = self.encode(goal_rgb)
+        goal = self._goal_encoding
         pair = self.runtime._pair_outputs(current, goal)
         self._evidence_counter += 1
         arrival = self.runtime.predict_arrival(
@@ -104,12 +123,49 @@ class PanoramicPlaceCompass:
         self.arrival_state = arrival["temporal_state"]
         similarity = float(self.runtime.retrieve(current["global_descriptor"], goal["global_descriptor"].reshape(1, -1), 1)["scores"].reshape(-1)[0])
         bearing = float(pair["yaw"].get("predicted_yaw_degrees", np.array([0.0])).reshape(-1)[0])
-        candidate = bool(arrival["candidate"].reshape(-1)[0]) or similarity >= float(self.config.get("goal_similarity_threshold", 0.90))
+        # Match the frozen server contract: the arrival head is supporting
+        # evidence, not a standalone trigger. A goal candidate must first
+        # pass the strict VPR similarity gate.
+        threshold = float(self.config.get("goal_similarity_threshold", 0.975))
+        if self._goal_reject_cooldown > 0:
+            self._goal_reject_cooldown -= 1
+            return {"similarity": similarity, "bearing_deg": bearing, "arrival_candidate": False,
+                    "arrival_confirmed": False, "arrival_probability": float(arrival["temporal_probability"].reshape(-1)[0]),
+                    "arrival": arrival, "geometry": None}
+        if not self._goal_verification_active and similarity >= threshold:
+            self._goal_verification_active = True
+            self._goal_verification_frames = 0
+            self._goal_strong_geometry_streak = 0
+        candidate = bool(self._goal_verification_active)
         confirmed = False
         geometry = None
         if candidate and self.geometry is not None:
+            self._goal_verification_frames += 1
             geometry = self.geometry.verify(current_rgb, goal_rgb, bearing)
-            confirmed = bool(geometry.get("confirmed", False)) and bool(arrival["confirmed"].reshape(-1)[0])
+            arrival_probability = float(arrival["temporal_probability"].reshape(-1)[0])
+            min_arrival_probability = float(self.config.get("goal_min_arrival_probability", 0.010))
+            strong_geometry = (
+                int(geometry.get("inliers", 0)) >= int(self.config.get("goal_min_inliers", 18))
+                and float(geometry.get("grid_coverage", 0.0)) >= float(self.config.get("goal_min_grid_coverage", 0.055))
+                and float(geometry.get("reprojection_error_px", 99.0)) <= float(self.config.get("goal_max_reprojection_error_px", 3.0))
+                and int(geometry.get("supported_sectors", 0)) >= int(self.config.get("goal_min_supported_sectors", 2))
+            )
+            if strong_geometry and arrival_probability >= min_arrival_probability:
+                self._goal_strong_geometry_streak += 1
+            else:
+                self._goal_strong_geometry_streak = 0
+            confirmed = self._goal_strong_geometry_streak >= int(self.config.get("goal_required_consecutive_geometry", 2))
+            geometry["strong_geometry"] = strong_geometry
+            geometry["strong_geometry_streak"] = self._goal_strong_geometry_streak
+            if confirmed:
+                self._goal_verification_active = False
+            elif self._goal_verification_frames >= int(self.config.get("goal_max_verification_frames", 12)):
+                self._goal_verification_active = False
+                self._goal_reject_cooldown = int(self.config.get("goal_reject_cooldown_frames", 12))
+                self._goal_strong_geometry_streak = 0
+        elif not candidate:
+            self._goal_strong_geometry_streak = 0
+        self._goal_last_candidate = candidate
         return {"similarity": similarity, "bearing_deg": bearing, "arrival_candidate": candidate,
                 "arrival_confirmed": confirmed, "arrival_probability": float(arrival["temporal_probability"].reshape(-1)[0]),
                 "arrival": arrival, "geometry": geometry}
