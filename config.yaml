@@ -12,3 +12,43 @@ geometry:
 control:
   max_linear_mps: 0.20
   max_angular_rps: 0.30
+  rule: polar_esdf
+  polar_esdf:
+    candidate_angle_min_deg: -60.0
+    candidate_angle_max_deg: 60.0
+    candidate_angle_step_deg: 5.0
+    rollout_length: 1.5
+    rollout_num_points: 10
+    rollout_ignore_near_distance_m: 0.3
+    observed_sector_margin_deg: 5.0
+    phi_safe: 0.6
+    w_goal: 1.6
+    w_collision: 1.8
+    w_turn_change: 0.2
+    k_omega: 1.5
+    max_linear_speed: 0.20
+    min_linear_speed: 0.0
+    max_angular_speed: 0.30
+    phi_stop: 0.08
+    phi_slow: 0.25
+    speed_clearance_mean_weight: 0.7
+    min_turn_speed_scale: 0.80
+    goal_tolerance_m: 0.4
+    min_range: 0.05
+    max_range: 8.0
+    distance_ema_alpha: 0.7
+    angular_smooth_window: 5
+    angular_smooth_method: mean
+    use_existence_filter: false
+    fov_deg: 360.0
+    grid_x_min: -1.0
+    grid_x_max: 8.0
+    grid_y_min: -4.0
+    grid_y_max: 4.0
+    grid_resolution: 0.1
+    free_space_fill_radius_cells: 0
+    robot_radius: 0.2
+    safety_margin: 0.06
+    unknown_as_occupied: false
+    unknown_penalty_dist_m: 0.35
+    esdf_max_dist: 2.5

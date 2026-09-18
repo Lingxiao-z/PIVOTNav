@@ -24,6 +24,7 @@ class NavigableCuriosityField:
         self.model = None
         self.backbone = None
         self._omnitrav = None
+        self._controller = None
         if str(weights_root) not in ("", "."):
             self._load()
 
@@ -99,6 +100,13 @@ class NavigableCuriosityField:
             "valid_mask": valid,
             "selected_sector": int(np.argmax(masked)) if valid.any() else None,
         }
+
+    def command(self, distances: np.ndarray, goal_heading_rad: float) -> tuple[float, float, dict[str, Any]]:
+        if self._controller is None:
+            from .controller import OmniGuardDistanceController
+
+            self._controller = OmniGuardDistanceController(self.config)
+        return self._controller.step(distances, goal_heading_rad)
 
     def predict_distances(self, rgb: np.ndarray) -> np.ndarray:
         """Run the bundled OmniTrav inference and return 360 raw distances."""

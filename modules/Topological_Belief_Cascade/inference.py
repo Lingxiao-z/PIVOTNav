@@ -67,11 +67,14 @@ class TopologicalBeliefCascade:
         bearing = float(selected.sector * 30.0)
         if self.graph.current_node is not None and selected.parent_node != self.graph.current_node:
             bearing = self.compass.command_bearing(rgb, selected.parent_node)
+        from modules.Navigable_Curiosity_Field.inference import NavigableCuriosityField
+        if hasattr(self, "curiosity") and isinstance(self.curiosity, NavigableCuriosityField):
+            return self.curiosity.command(distances, np.deg2rad(((bearing + 180.0) % 360.0) - 180.0))[:2]
         target = np.deg2rad(((bearing + 180.0) % 360.0) - 180.0)
         max_linear = float(config.get("control", {}).get("max_linear_mps", 0.20))
         max_angular = float(config.get("control", {}).get("max_angular_rps", 0.30))
         angular = float(np.clip(target, -max_angular, max_angular))
-        linear = 0.0 if abs(angular) > 0.5 * max_angular else max_linear
+        linear = max_linear if abs(angular) < max_angular else 0.0
         return linear, angular
 
 

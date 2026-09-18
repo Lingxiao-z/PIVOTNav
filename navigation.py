@@ -30,6 +30,7 @@ class NavigationSystem:
         compass = PanoramicPlaceCompass(root, config)
         topology = TopologicalBeliefCascade(config, compass)
         curiosity = NavigableCuriosityField(root, config)
+        topology.curiosity = curiosity
         adapter.attach_curiosity(curiosity)
         return cls(config, adapter.goal_rgb(), adapter, compass, topology, curiosity)
 
