@@ -77,4 +77,5 @@ class OriginalTopology:
         self.add_edge(selected.parent_node, new_id)
         selected.state = "promoted"
         self.current_node = new_id
+        self.selected_frontier = None
         return new_id
