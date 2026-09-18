@@ -38,11 +38,7 @@ class TopologicalBeliefCascade:
         else:
             node_id = self.graph.current_node
             if node_id is None:
-                ranked = self.compass.retrieve(rgb, top_k=1)
-                if not ranked:
-                    raise RuntimeError("topology has no current node and VPR returned no node")
-                node_id = int(ranked[0][0])
-                self.graph.current_node = node_id
+                raise RuntimeError("topology has nodes but no current node")
             self.graph.nodes[node_id].visits += 1
         self.last_observation_node = node_id
         return node_id
