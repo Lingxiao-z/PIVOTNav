@@ -54,17 +54,17 @@ class PanoramicPlaceCompass:
         self.runtime = load_r361_modular_package(checkpoint, self.config.get("device", "cuda"))
         try:
             os.environ["PIVOTNAV_R363_CHECKPOINT"] = str(self.weights_root / "r363/r363_bearing.pt")
-            from bearing_runtime import R363BearingRuntime
+            from .bearing_runtime import R363BearingRuntime
 
             self.bearing = R363BearingRuntime(self.runtime, self.config.get("device", "cuda"))
-        except Exception:
-            self.bearing = None
+        except Exception as exc:
+            raise RuntimeError("R36.3 bearing runtime failed to initialize") from exc
         try:
             from .lightglue_ransac import LightGlueRANSACVerifier
 
             self.geometry = LightGlueRANSACVerifier(self.weights_root, self.config.get("device", "cuda"))
-        except Exception:
-            self.geometry = None
+        except Exception as exc:
+            raise RuntimeError("LightGlue/RANSAC verifier failed to initialize") from exc
         self.runtime.eval()
 
     def encode(self, rgb: np.ndarray) -> Any:
