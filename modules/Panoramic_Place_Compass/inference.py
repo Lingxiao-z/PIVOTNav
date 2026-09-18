@@ -42,7 +42,8 @@ class PanoramicPlaceCompass:
     def _load(self) -> None:
         import torch
 
-        os.environ.setdefault("PANORAMIC_VPR_DINOV2_CHECKOUT", str(IMPL / "dinov2"))
+        dino_checkout = ROOT.parent / "Navigable_Curiosity_Field" / "_impl" / "dinov2"
+        os.environ.setdefault("PANORAMIC_VPR_DINOV2_CHECKOUT", str(dino_checkout))
         os.environ.setdefault(
             "PANORAMIC_VPR_DINOV2_WEIGHT",
             str(self.weights_root / "dinov2/dinov2_vits14_pretrain.pth"),
