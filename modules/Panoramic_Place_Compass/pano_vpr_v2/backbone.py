@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import os
 import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List
@@ -131,6 +132,8 @@ class DINOv2S14Backbone(nn.Module):
         # Bind runtime code to the fixed local checkout. This avoids floating
         # torch.hub default-branch loads while still reusing the verified cached
         # official weight.
+        if str(DINOV2_LOCAL_CHECKOUT.parent) not in sys.path:
+            sys.path.insert(0, str(DINOV2_LOCAL_CHECKOUT.parent))
         os.environ.setdefault("TORCH_HOME", str(PROJECT_ROOT / "cache" / "torch"))
         self.model = torch.hub.load(
             str(DINOV2_LOCAL_CHECKOUT),

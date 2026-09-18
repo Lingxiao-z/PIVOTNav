@@ -33,6 +33,9 @@ class NavigableCuriosityField:
         from panorama_fs.dino_fgfs_revision3_b2 import RevisedDINOv2PanoramaFGFSV3LastBlockB2
 
         repository = str(ROOT.parent.parent / "third_party" / "dinov2")
+        repository_parent = str(Path(repository).parent)
+        if repository_parent not in sys.path:
+            sys.path.insert(0, repository_parent)
         dino_weight = self.weights_root / "dinov2/dinov2_vits14_pretrain.pth"
         checkpoint = self.weights_root / "fs/step_019000.pt"
         self.backbone = torch.hub.load(
