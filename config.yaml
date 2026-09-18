@@ -1,0 +1,13 @@
+device: cuda
+topology_backend: original
+max_steps: 1200
+candidate_frontier_distance_m: 3.0
+goal_check_period: 1
+weights_root: ""
+geometry:
+  min_inliers: 8
+  min_grid_coverage: 0.02
+  max_reprojection_error_px: 5.0
+control:
+  max_linear_mps: 0.20
+  max_angular_rps: 0.30

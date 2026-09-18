@@ -1,0 +1,5 @@
+device: cuda
+topology_backend: original
+max_steps: 1200
+candidate_frontier_distance_m: 3.0
+weights_root: /absolute/path/to/external/models

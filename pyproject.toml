@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pivotnav"
+version = "0.1.0"
+description = "RGB-only panoramic image-goal navigation for Habitat-GS"
+requires-python = ">=3.10"
+dependencies = [
+  "numpy>=1.24",
+  "Pillow>=9.5",
+  "PyYAML>=6.0",
+]
+
+[tool.setuptools]
+py-modules = ["main", "navigation", "habitat_gs"]
