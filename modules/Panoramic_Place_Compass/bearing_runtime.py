@@ -45,7 +45,8 @@ class R363BearingRuntime:
         if payload.get("schema_version") != "r363_limited_unfreeze_checkpoint_v1":
             raise RuntimeError("unsupported R36.3 checkpoint schema")
 
-        self.backbone = copy.deepcopy(vpr.runtime.encoder_system.backbone)
+        encoder_backbone = getattr(vpr, "runtime", vpr).encoder_system.backbone
+        self.backbone = copy.deepcopy(encoder_backbone)
         state = self.backbone.model.state_dict()
         tail = payload["bearing_tail"]
         expected = {name for name in state if name.startswith(("blocks.11.", "norm."))}
