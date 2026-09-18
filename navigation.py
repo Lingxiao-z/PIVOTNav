@@ -30,6 +30,7 @@ class NavigationSystem:
         compass = PanoramicPlaceCompass(root, config)
         topology = TopologicalBeliefCascade(config, compass)
         curiosity = NavigableCuriosityField(root, config)
+        adapter.attach_curiosity(curiosity)
         return cls(config, adapter.goal_rgb(), adapter, compass, topology, curiosity)
 
     def run(self) -> dict[str, Any]:
@@ -46,6 +47,8 @@ class NavigationSystem:
                 scores = self.curiosity.predict(rgb, self.goal_rgb)
                 selection = self.curiosity.select(scores, distances)
                 self.topology.select_candidate_frontier(node_id, selection)
+                if hasattr(self.adapter, "begin_candidate_frontier"):
+                    self.adapter.begin_candidate_frontier()
             decision = self.topology.command(rgb, distances, goal, self.config)
             rgb, distances, reached = self.adapter.step(decision[0], decision[1])
             if reached:

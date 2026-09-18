@@ -32,6 +32,7 @@ class TopologicalBeliefCascade:
         ranked = self.compass.retrieve(rgb, top_k=1)
         if not self.graph.nodes or not ranked or ranked[0][1] < float(self.config.get("node_match_threshold", 0.92)):
             node_id = self.graph.add_regular_node(rgb)
+            self.compass.add_node(node_id, rgb)
         else:
             node_id = int(ranked[0][0])
             self.graph.current_node = node_id
@@ -54,7 +55,10 @@ class TopologicalBeliefCascade:
         value = np.zeros(12, dtype=np.float32)
         if scores:
             value[:] = float(scores[0][1])
-        return self.graph.promote_selected(rgb, value, np.ones(12, dtype=bool))
+        new_id = self.graph.promote_selected(rgb, value, np.ones(12, dtype=bool))
+        if new_id is not None:
+            self.compass.add_node(new_id, rgb)
+        return new_id
 
     def command(self, rgb: np.ndarray, distances: np.ndarray, goal: dict[str, Any], config: dict[str, Any]) -> tuple[float, float]:
         selected = self.graph.frontiers.get(self.graph.selected_frontier or "")

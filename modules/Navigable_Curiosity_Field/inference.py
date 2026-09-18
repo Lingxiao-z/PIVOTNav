@@ -23,6 +23,7 @@ class NavigableCuriosityField:
         self.device = config.get("device", "cuda")
         self.model = None
         self.backbone = None
+        self._omnitrav = None
         if str(weights_root) not in ("", "."):
             self._load()
 
@@ -98,6 +99,38 @@ class NavigableCuriosityField:
             "valid_mask": valid,
             "selected_sector": int(np.argmax(masked)) if valid.any() else None,
         }
+
+    def predict_distances(self, rgb: np.ndarray) -> np.ndarray:
+        """Run the bundled OmniTrav inference and return 360 raw distances."""
+        if self._omnitrav is None:
+            from .omniguard.models.inference import TraversabilityInference
+
+            checkpoint = self.weights_root / "omnitrav/best_origin.pth"
+            config = {
+                "model": {
+                    "checkpoint_path": str(checkpoint),
+                    "device": self.device,
+                    "azimuth_tensor_cache": {"enabled": True},
+                    "input": {"long_edge": 512, "multiple_of": 16, "allow_upscale": False},
+                    "normalize": {"mean": [0.485, 0.456, 0.406], "std": [0.229, 0.224, 0.225]},
+                    "camera": {
+                        "model": "equirectangular", "use_ros_camera_info": False,
+                        "generate_fisheye_rays_with_unik3d": False, "rays_cache_dir": "",
+                        "frame_id": "habitat_erp", "width": 512, "height": 256,
+                        "distortion_model": "equirectangular", "d": [],
+                        "k": [81.4872, 0.0, 256.0, 0.0, 81.4872, 128.0, 0.0, 0.0, 1.0],
+                        "r": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+                        "p": [81.4872, 0.0, 256.0, 0.0, 0.0, 81.4872, 128.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+                        "fx": 81.4872, "fy": 81.4872, "cx": 256.0, "cy": 128.0,
+                    },
+                    "architecture": {"force_multi_scale": None, "multiscale_layer_indices": [2, 5, 8, 11]},
+                    "exist_logit": {"usage": "combined_distance", "probability_threshold": 0.5, "free_space_distance_m": 100.0},
+                }
+            }
+            self._omnitrav = TraversabilityInference(config)
+        # OmniTrav's public preprocessing accepts BGR, while Habitat returns RGB.
+        result = self._omnitrav.run(np.asarray(rgb)[..., :3][..., ::-1].copy())
+        return np.asarray(result.raw_distance_m, dtype=np.float32).reshape(360)
 
 
 def smoke_curiosity(current: np.ndarray, goal: np.ndarray) -> dict[str, bool]:
