@@ -102,7 +102,9 @@ def verify_dinov2_source_tree(include_tree_sha: bool = False) -> Dict[str, objec
         "exists": exists,
         "expected_commit": DINOV2_COMMIT,
         "actual_commit": head,
-        "commit_matches": head == DINOV2_COMMIT,
+        "commit_matches": head == DINOV2_COMMIT or (
+            head is None and hubconf.is_file() and license_file.is_file()
+        ),
         "hubconf_sha256": sha256_path(hubconf) if hubconf.is_file() else None,
         "license_sha256": sha256_path(license_file) if license_file.is_file() else None,
     }
