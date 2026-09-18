@@ -34,6 +34,8 @@ class PanoramicPlaceCompass:
         self.runtime = None
         self.bearing = None
         self.geometry = None
+        self.arrival_state = None
+        self._evidence_counter = 0
         self.nodes: dict[int, dict[str, Any]] = {}
         if self.weights_root:
             self._load()
@@ -52,6 +54,7 @@ class PanoramicPlaceCompass:
 
         checkpoint = self.weights_root / "r361/r361_modular.pt"
         self.runtime = load_r361_modular_package(checkpoint, self.config.get("device", "cuda"))
+        self.arrival_state = self.runtime.reset_arrival_state()
         try:
             os.environ["PIVOTNAV_R363_CHECKPOINT"] = str(self.weights_root / "r363/r363_bearing.pt")
             from .bearing_runtime import R363BearingRuntime
@@ -94,16 +97,22 @@ class PanoramicPlaceCompass:
         current = self.encode(current_rgb)
         goal = self.encode(goal_rgb)
         pair = self.runtime._pair_outputs(current, goal)
+        self._evidence_counter += 1
+        arrival = self.runtime.predict_arrival(
+            current, goal, f"goal-evidence-{self._evidence_counter}", self.arrival_state,
+        )
+        self.arrival_state = arrival["temporal_state"]
         similarity = float(self.runtime.retrieve(current["global_descriptor"], goal["global_descriptor"].reshape(1, -1), 1)["scores"].reshape(-1)[0])
         bearing = float(pair["yaw"].get("predicted_yaw_degrees", np.array([0.0])).reshape(-1)[0])
-        candidate = similarity >= float(self.config.get("goal_similarity_threshold", 0.90))
+        candidate = bool(arrival["candidate"].reshape(-1)[0]) or similarity >= float(self.config.get("goal_similarity_threshold", 0.90))
         confirmed = False
         geometry = None
         if candidate and self.geometry is not None:
             geometry = self.geometry.verify(current_rgb, goal_rgb, bearing)
-            confirmed = bool(geometry.get("confirmed", False))
+            confirmed = bool(geometry.get("confirmed", False)) and bool(arrival["confirmed"].reshape(-1)[0])
         return {"similarity": similarity, "bearing_deg": bearing, "arrival_candidate": candidate,
-                "arrival_confirmed": confirmed, "geometry": geometry}
+                "arrival_confirmed": confirmed, "arrival_probability": float(arrival["temporal_probability"].reshape(-1)[0]),
+                "arrival": arrival, "geometry": geometry}
 
     def command_bearing(self, current_rgb: np.ndarray, node_id: int) -> float:
         if self.runtime is None:

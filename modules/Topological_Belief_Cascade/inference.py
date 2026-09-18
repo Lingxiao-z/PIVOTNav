@@ -29,13 +29,20 @@ class TopologicalBeliefCascade:
 
     def observe(self, rgb: np.ndarray, goal_evidence: dict[str, Any]) -> int:
         self.graph.step += 1
-        ranked = self.compass.retrieve(rgb, top_k=1)
-        if not self.graph.nodes or not ranked or ranked[0][1] < float(self.config.get("node_match_threshold", 0.92)):
+        # A weak or missing VPR match is an uncertainty event, not a map
+        # insertion event. Regular nodes are created only after the selected
+        # candidate frontier reaches its 3 m completion gate.
+        if not self.graph.nodes:
             node_id = self.graph.add_regular_node(rgb)
             self.compass.add_node(node_id, rgb)
         else:
-            node_id = int(ranked[0][0])
-            self.graph.current_node = node_id
+            node_id = self.graph.current_node
+            if node_id is None:
+                ranked = self.compass.retrieve(rgb, top_k=1)
+                if not ranked:
+                    raise RuntimeError("topology has no current node and VPR returned no node")
+                node_id = int(ranked[0][0])
+                self.graph.current_node = node_id
             self.graph.nodes[node_id].visits += 1
         self.last_observation_node = node_id
         return node_id
@@ -50,15 +57,53 @@ class TopologicalBeliefCascade:
         node.valid = np.asarray(scores["valid_mask"], dtype=bool).reshape(12)
         return self.graph.select(node_id)
 
-    def promote_candidate_frontier(self, rgb: np.ndarray, distances: np.ndarray) -> int | None:
-        scores = self.compass.retrieve(rgb, top_k=1)
-        value = np.zeros(12, dtype=np.float32)
-        if scores:
-            value[:] = float(scores[0][1])
-        new_id = self.graph.promote_selected(rgb, value, np.ones(12, dtype=bool))
+    def promote_candidate_frontier(
+        self,
+        rgb: np.ndarray,
+        distances: np.ndarray,
+        selection: dict[str, np.ndarray] | None = None,
+    ) -> int | None:
+        if selection is None:
+            scores = self.compass.retrieve(rgb, top_k=1)
+            value = np.zeros(12, dtype=np.float32)
+            if scores:
+                value[:] = float(scores[0][1])
+            valid = np.ones(12, dtype=bool)
+        else:
+            value = np.asarray(selection["fs_scores"], dtype=np.float32).reshape(12)
+            valid = np.asarray(selection["valid_mask"], dtype=bool).reshape(12)
+        new_id = self.graph.promote_selected(rgb, value, valid)
         if new_id is not None:
             self.compass.add_node(new_id, rgb)
         return new_id
+
+    def route_to_parent(self, parent_node: int) -> list[int]:
+        """Return the original graph path used for historical-parent recovery."""
+        source = self.graph.current_node
+        if source is None or source == parent_node:
+            return [int(parent_node)]
+        adjacency = {node_id: set() for node_id in self.graph.nodes}
+        for src, dst, _kind in self.graph.edges:
+            adjacency[src].add(dst)
+            adjacency[dst].add(src)
+        queue = [source]
+        previous: dict[int, int | None] = {source: None}
+        for node in queue:
+            if node == parent_node:
+                break
+            for nxt in sorted(adjacency[node]):
+                if nxt not in previous:
+                    previous[nxt] = node
+                    queue.append(nxt)
+        if parent_node not in previous:
+            return []
+        path = [int(parent_node)]
+        while path[-1] != source:
+            predecessor = previous[path[-1]]
+            if predecessor is None:
+                return []
+            path.append(int(predecessor))
+        return list(reversed(path))
 
     def command(self, rgb: np.ndarray, distances: np.ndarray, goal: dict[str, Any], config: dict[str, Any]) -> tuple[float, float]:
         selected = self.graph.frontiers.get(self.graph.selected_frontier or "")

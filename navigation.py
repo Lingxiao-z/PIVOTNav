@@ -56,7 +56,9 @@ class NavigationSystem:
             rgb, distances, reached = self.adapter.step(decision[0], decision[1])
             self.heading_deg = (self.heading_deg - float(decision[1]) * float(self.config.get("control_dt_s", 0.25)) * 180.0 / np.pi + 180.0) % 360.0 - 180.0
             if reached:
-                self.topology.promote_candidate_frontier(rgb, distances)
+                promoted_scores = self.curiosity.predict(rgb, self.goal_rgb)
+                promoted_selection = self.curiosity.select(promoted_scores, distances)
+                self.topology.promote_candidate_frontier(rgb, distances, promoted_selection)
             result.update(steps=self.step_count, regular_nodes=self.topology.node_count,
                           candidate_frontier=self.topology.selected_frontier)
         result["status"] = "BUDGET_EXHAUSTED"
