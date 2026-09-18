@@ -37,6 +37,8 @@ class LightGlueRANSACVerifier:
 
     def verify(self, current: np.ndarray, goal: np.ndarray, yaw_deg: float = 0.0) -> dict[str, float | int | bool]:
         best = None
+        supported_sectors = 0
+        sector_results = []
         for center in np.arange(0.0, 360.0, 45.0):
             a_img, b_img = self._view(current, center + yaw_deg), self._view(goal, center)
             with __import__("torch").inference_mode():
@@ -63,8 +65,12 @@ class LightGlueRANSACVerifier:
             else:
                 coverage = 0.0
             item = {"raw_matches": int(len(m)), "inliers": inliers, "grid_coverage": coverage, "reprojection_error_px": reproj}
+            sector_results.append(item)
+            if inliers >= 8:
+                supported_sectors += 1
             if best is None or item["inliers"] > best["inliers"]:
                 best = item
         assert best is not None
-        best["confirmed"] = bool(best["inliers"] >= 8 and best["grid_coverage"] >= 0.02 and best["reprojection_error_px"] <= 5.0)
+        best["supported_sectors"] = int(supported_sectors)
+        best["second_best_inliers"] = int(sorted((item["inliers"] for item in sector_results), reverse=True)[1]) if len(sector_results) > 1 else 0
         return best

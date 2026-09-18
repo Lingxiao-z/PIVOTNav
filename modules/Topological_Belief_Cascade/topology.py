@@ -14,6 +14,7 @@ class RegularNode:
     visits: int = 0
     scores: np.ndarray = field(default_factory=lambda: np.zeros(12, dtype=np.float32))
     valid: np.ndarray = field(default_factory=lambda: np.ones(12, dtype=bool))
+    heading_deg: float = 0.0
 
 
 @dataclass
@@ -41,9 +42,10 @@ class OriginalTopology:
         return len(self.nodes)
 
     def add_regular_node(self, rgb: np.ndarray, scores: np.ndarray | None = None,
-                         valid: np.ndarray | None = None) -> int:
+                         valid: np.ndarray | None = None, heading_deg: float = 0.0) -> int:
         node_id = len(self.nodes)
-        node = RegularNode(node_id, np.asarray(rgb)[..., :3].copy(), self.step)
+        node = RegularNode(node_id, np.asarray(rgb)[..., :3].copy(), self.step,
+                           heading_deg=float(heading_deg))
         if scores is not None:
             node.scores = np.asarray(scores, dtype=np.float32).reshape(12)
         if valid is not None:
@@ -69,11 +71,36 @@ class OriginalTopology:
         self.selected_frontier = selected.frontier_id
         return selected.frontier_id
 
-    def promote_selected(self, rgb: np.ndarray, scores: np.ndarray, valid: np.ndarray) -> int | None:
+    def select_global(self, scores_by_node: dict[int, dict[str, np.ndarray]]) -> str | None:
+        """Select the best still-available frontier over the full graph."""
+        candidates = []
+        for node_id, scores in scores_by_node.items():
+            node = self.nodes[node_id]
+            fs = np.asarray(scores["fs_scores"], dtype=np.float32).reshape(12)
+            valid = np.asarray(scores.get("valid_mask", np.ones(12, dtype=bool)), dtype=bool).reshape(12)
+            node.scores = fs
+            node.valid = valid
+            for frontier in self.frontiers.values():
+                if frontier.parent_node != node_id or frontier.state != "available":
+                    continue
+                if not bool(valid[frontier.sector]):
+                    continue
+                candidates.append((-float(fs[frontier.sector]), frontier.frontier_id))
+        if not candidates:
+            self.selected_frontier = None
+            return None
+        candidates.sort()
+        selected = self.frontiers[candidates[0][1]]
+        selected.attempts += 1
+        self.selected_frontier = selected.frontier_id
+        return selected.frontier_id
+
+    def promote_selected(self, rgb: np.ndarray, scores: np.ndarray, valid: np.ndarray,
+                         heading_deg: float = 0.0) -> int | None:
         selected = self.frontiers.get(self.selected_frontier or "")
         if selected is None:
             return None
-        new_id = self.add_regular_node(rgb, scores, valid)
+        new_id = self.add_regular_node(rgb, scores, valid, heading_deg=heading_deg)
         self.add_edge(selected.parent_node, new_id)
         selected.state = "promoted"
         self.current_node = new_id

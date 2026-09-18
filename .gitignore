@@ -22,5 +22,8 @@ modules/*/data/processed/*
 !modules/*/data/processed/.gitkeep
 runtime_state/
 outputs/
+.server_sources/
+_server_sources/
+validation/
 .env
 .venv/

@@ -27,13 +27,13 @@ class TopologicalBeliefCascade:
     def selected_frontier(self) -> str | None:
         return self.graph.selected_frontier
 
-    def observe(self, rgb: np.ndarray, goal_evidence: dict[str, Any]) -> int:
+    def observe(self, rgb: np.ndarray, goal_evidence: dict[str, Any], heading_deg: float = 0.0) -> int:
         self.graph.step += 1
         # A weak or missing VPR match is an uncertainty event, not a map
         # insertion event. Regular nodes are created only after the selected
         # candidate frontier reaches its 3 m completion gate.
         if not self.graph.nodes:
-            node_id = self.graph.add_regular_node(rgb)
+            node_id = self.graph.add_regular_node(rgb, heading_deg=heading_deg)
             self.compass.add_node(node_id, rgb)
         else:
             node_id = self.graph.current_node
@@ -53,6 +53,9 @@ class TopologicalBeliefCascade:
         node.valid = np.asarray(scores["valid_mask"], dtype=bool).reshape(12)
         return self.graph.select(node_id)
 
+    def select_global_frontier(self, scores_by_node: dict[int, dict[str, np.ndarray]]) -> str | None:
+        return self.graph.select_global(scores_by_node)
+
     def promote_candidate_frontier(
         self,
         rgb: np.ndarray,
@@ -68,7 +71,8 @@ class TopologicalBeliefCascade:
         else:
             value = np.asarray(selection["fs_scores"], dtype=np.float32).reshape(12)
             valid = np.asarray(selection["valid_mask"], dtype=bool).reshape(12)
-        new_id = self.graph.promote_selected(rgb, value, valid)
+        new_id = self.graph.promote_selected(rgb, value, valid,
+                                              heading_deg=float(self.config.get("current_heading_deg", 0.0)))
         if new_id is not None:
             self.compass.add_node(new_id, rgb)
         return new_id
@@ -105,7 +109,8 @@ class TopologicalBeliefCascade:
         selected = self.graph.frontiers.get(self.graph.selected_frontier or "")
         if selected is None:
             return 0.0, 0.0
-        bearing = float(selected.sector * 30.0) - float(config.get("current_heading_deg", 0.0))
+        parent_heading = float(self.graph.nodes[selected.parent_node].heading_deg)
+        bearing = parent_heading + float(selected.sector * 30.0) - float(config.get("current_heading_deg", 0.0))
         if self.graph.current_node is not None and selected.parent_node != self.graph.current_node:
             bearing = self.compass.command_bearing(rgb, selected.parent_node)
         from modules.Navigable_Curiosity_Field.inference import NavigableCuriosityField
