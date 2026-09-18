@@ -27,13 +27,21 @@ python main.py --smoke
 
 ## Run Habitat-GS
 
+`--scene` accepts a frozen task JSON containing `scene_id` and the task start
+position. The task's goal ERP is passed separately.
+
 ```bash
 python main.py \
   --config config.yaml \
-  --scene /absolute/path/to/scene_config.json \
+  --scene /absolute/path/to/task.json \
   --goal /absolute/path/to/goal_erp.png \
   --weights-root /absolute/path/to/external/models
 ```
+
+Set `habitat_root` in the YAML or `PIVOTNAV_HABITAT_ROOT` in the environment
+to the Habitat-GS checkout. The adapter uses the native Habitat-Sim
+`EquirectangularSensorSpec` and velocity control. OmniTrav is loaded from the
+external `omnitrav/best_origin.pth` checkpoint.
 
 The default topology backend is the original global VPR+BPL and graph update
 implementation. The optional accelerated implementation can be selected with
@@ -41,3 +49,5 @@ implementation. The optional accelerated implementation can be selected with
 
 Training and module evaluation commands are documented in the three module
 README files. Dataset directories are intentionally empty in the repository.
+The `third_party/` directory contains code only; all model weights and scene
+assets remain external.

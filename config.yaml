@@ -4,6 +4,7 @@ max_steps: 1200
 candidate_frontier_distance_m: 3.0
 goal_check_period: 1
 weights_root: ""
+habitat_root: ""
 geometry:
   min_inliers: 8
   min_grid_coverage: 0.02
