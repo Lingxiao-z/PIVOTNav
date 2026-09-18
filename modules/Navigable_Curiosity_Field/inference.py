@@ -54,7 +54,7 @@ class NavigableCuriosityField:
         import torch
         import torch.nn.functional as F
 
-        value = torch.from_numpy(np.ascontiguousarray(image[..., :3])).permute(2, 0, 1).float().div_(255.0)
+        value = torch.from_numpy(np.ascontiguousarray(image[..., :3]).copy()).permute(2, 0, 1).float().div_(255.0)
         value = F.interpolate(value[None], size=(224, 448), mode="bilinear", align_corners=False).to(self.device)
         mean = value.new_tensor([0.485, 0.456, 0.406])[None, :, None, None]
         std = value.new_tensor([0.229, 0.224, 0.225])[None, :, None, None]
