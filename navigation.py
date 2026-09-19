@@ -774,7 +774,10 @@ def main() -> None:
     goal_runtime = None
     if args.goal_verifier and not args.disable_goal_verifier:
         from modules.Panoramic_Place_Compass.geometry import DynamicParallaxExtractor
-        from modules.Panoramic_Place_Compass.arrival import V7SequenceDecisionEngine
+        from modules.Panoramic_Place_Compass.arrival import (
+            V7SequenceDecisionEngine,
+            resolve_arrival_model_path,
+        )
         protocol_path = Path(os.environ.get(
             "PIVOTNAV_ARRIVAL_PROTOCOL",
             PROJECT_ROOT / "modules/Panoramic_Place_Compass/arrival_protocol.json",
@@ -782,9 +785,7 @@ def main() -> None:
         protocol = json.loads(protocol_path.read_text())
         model = protocol["model"]
         configured_model = os.environ.get("PIVOTNAV_ARRIVAL_MODEL")
-        model_path = Path(configured_model).expanduser().resolve() if configured_model else Path(model["path"]).expanduser()
-        if not model_path.is_absolute():
-            model_path = (protocol_path.parent / model_path).resolve()
+        model_path = resolve_arrival_model_path(configured_model, protocol_path, model["path"])
         if not model_path.is_file():
             raise RuntimeError(
                 "arrival model is not configured; set PIVOTNAV_ARRIVAL_MODEL "
