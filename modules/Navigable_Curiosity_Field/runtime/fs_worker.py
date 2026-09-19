@@ -35,12 +35,28 @@ class ExpandedWorkerClient:
         if worker_device.startswith("cuda:"):
             environment["CUDA_VISIBLE_DEVICES"] = worker_device.split(":", 1)[1]
             worker_device = "cuda:0"
+        # The formal server worker owns its package/checkpoint paths and only
+        # accepts ``--device``. The public worker also accepts an optional
+        # package root. Probe the CLI once so the client speaks both contracts
+        # without changing the worker's model or preprocessing behavior.
+        help_result = subprocess.run(
+            [sys.executable, str(worker), "--help"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            check=False,
+        )
+        supports_package_root = "--package-root" in help_result.stdout
         package_root = os.environ.get("PIVOTNAV_FS_PACKAGE_ROOT")
-        if not package_root:
-            raise RuntimeError("PIVOTNAV_FS_PACKAGE_ROOT is required")
+        if supports_package_root and not package_root:
+            raise RuntimeError("PIVOTNAV_FS_PACKAGE_ROOT is required for this FS worker")
+        command = [sys.executable, str(worker)]
+        if supports_package_root:
+            command.extend(["--package-root", package_root])
+        command.extend(["--device", worker_device])
         self.stderr = stderr_path.open("w", encoding="utf-8")
         self.process = subprocess.Popen(
-            [sys.executable, str(worker), "--package-root", package_root, "--device", worker_device],
+            command,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=self.stderr,
