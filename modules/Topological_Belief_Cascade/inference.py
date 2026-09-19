@@ -4,7 +4,7 @@ from typing import Any
 
 import numpy as np
 
-from .topology import OriginalTopology
+from .runtime.reference_graph import AcceleratedTopology, OriginalTopology
 
 
 class TopologicalBeliefCascade:
@@ -13,7 +13,6 @@ class TopologicalBeliefCascade:
         self.compass = compass
         self.backend_name = str(config.get("topology_backend", "original"))
         if self.backend_name == "accelerated":
-            from .accelerated import AcceleratedTopology
             self.graph = AcceleratedTopology()
         else:
             self.graph = OriginalTopology()

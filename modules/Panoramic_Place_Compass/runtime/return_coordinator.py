@@ -17,7 +17,7 @@ from modules.Panoramic_Place_Compass.runtime.arrival_sequence import (
     FrameAssessment,
     V7SequenceDecisionEngine,
 )
-from modules.Panoramic_Place_Compass.runtime.dynamic_parallax import DynamicParallaxExtractor
+from modules.Panoramic_Place_Compass.runtime.parallax import DynamicParallaxExtractor
 
 
 def sha256(path: Path) -> str:
@@ -121,7 +121,7 @@ class LiveV7ReturnCoordinator:
         if self.target_rgb is None or self.target_encoding is None:
             raise RuntimeError("target encoding is unavailable")
         started = time.perf_counter()
-        from modules.Panoramic_Place_Compass.runtime.active_evidence import pair_from_encoding
+        from modules.Panoramic_Place_Compass.runtime.evidence import pair_from_encoding
 
         query_encoding = self.r361.encode_panorama(rgb)
         pair = pair_from_encoding(

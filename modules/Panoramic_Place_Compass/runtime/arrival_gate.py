@@ -1,10 +1,10 @@
-"""Final-confirmed transaction bridge between a frozen verifier and NTS graph."""
+"""Final-confirmed transaction bridge between the verifier and topology graph."""
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Mapping
 
-from modules.Topological_Belief_Cascade.runtime.goal_policy import NTSGoalNavigator
+from modules.Topological_Belief_Cascade.runtime.topology import CandidateFrontierNavigator
 from modules.Topological_Belief_Cascade.runtime.event_semantics import (
     GOAL_FINAL_CONFIRMED,
     CANDIDATE_FRONTIER_FINAL_CONFIRMED,
@@ -22,7 +22,7 @@ class ArrivalRequest:
     final_goal: bool = False
 
 
-class NTSArrivalGateAdapter:
+class ArrivalGate:
     """Apply typed arrival transactions with a single Goal Stop authority.
 
     ``goal`` is the only target that can authorize Stop. Candidate-frontier and historical
@@ -30,9 +30,9 @@ class NTSArrivalGateAdapter:
     emitted with distinct event types for downstream audits.
     """
 
-    schema = "integration_v4_nts_arrival_gate_adapter_v1"
+    schema = "pivotnav_candidate_frontier_arrival_gate_v1"
 
-    def __init__(self, policy: NTSGoalNavigator) -> None:
+    def __init__(self, policy: CandidateFrontierNavigator) -> None:
         self.policy = policy
         self.generation = 0
         self.active: ArrivalRequest | None = None

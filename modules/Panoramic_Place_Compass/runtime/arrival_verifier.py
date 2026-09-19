@@ -1,8 +1,8 @@
-"""Conditional V3.3.12/V7 RGB arrival adapter for the V4 NTS goal path.
+"""Conditional V3.3.12/V7 RGB arrival adapter for the candidate-frontier path.
 
 The frozen verifier is deliberately kept behind a small bridge.  It can
-observe and produce a final-confirmed event, but it cannot mutate the NTS
-graph or authorize Stop except through ``NTSArrivalGateAdapter``.
+observe and produce a final-confirmed event, but it cannot mutate the topology
+graph or authorize Stop except through ``ArrivalGate``.
 """
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from typing import Any
 import numpy as np
 from PIL import Image
 
-from modules.Panoramic_Place_Compass.runtime.arrival_gate import NTSArrivalGateAdapter
+from modules.Panoramic_Place_Compass.runtime.arrival_gate import ArrivalGate
 from modules.Topological_Belief_Cascade.runtime.event_semantics import (
     GOAL_FINAL_CONFIRMED,
     CANDIDATE_FRONTIER_FINAL_CONFIRMED,
@@ -101,12 +101,12 @@ class GoalImageArrivalVerifier:
     ) -> None:
         import sys
 
-        frozen_root = Path(os.environ.get("PIVOTNAV_ARRIVAL_FROZEN_ROOT", str(ROOT / "arrival_frozen"))).expanduser()
+        frozen_root = Path(os.environ.get("PIVOTNAV_ARRIVAL_FROZEN_ROOT", str(ROOT))).expanduser()
         sys.path[:0] = [str(ROOT), str(frozen_root)]
         from modules.Panoramic_Place_Compass.runtime.arrival_sequence import V7SequenceDecisionEngine
-        from modules.Panoramic_Place_Compass.runtime.dynamic_parallax import DynamicParallaxExtractor
+        from modules.Panoramic_Place_Compass.runtime.parallax import DynamicParallaxExtractor
         from modules.Panoramic_Place_Compass.runtime.return_coordinator import LiveV7ReturnCoordinator
-        from modules.Panoramic_Place_Compass.runtime.active_evidence import pair_from_encoding
+        from modules.Panoramic_Place_Compass.runtime.evidence import pair_from_encoding
 
         protocol = json.loads(ARRIVAL_PROTOCOL.read_text())
         model = protocol["model"]
@@ -122,7 +122,7 @@ class GoalImageArrivalVerifier:
         descriptor = self.goal_encoding["global_descriptor"].detach().cpu().float().numpy()[0]
         descriptor /= max(float(np.linalg.norm(descriptor)), 1e-12)
         self.graph = _GoalGraph(descriptor, self.goal_path)
-        self.gate = NTSArrivalGateAdapter(policy)
+        self.gate = ArrivalGate(policy)
         self.run_dir = Path(run_dir)
         self.scene_id = str(scene_id)
         self.vpr_candidate_threshold = float(vpr_candidate_threshold)

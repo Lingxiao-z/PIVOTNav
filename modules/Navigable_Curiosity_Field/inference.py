@@ -1,5 +1,12 @@
+"""Small public facade for Navigable Curiosity Field.
+
+The formal runner uses the persistent workers in ``runtime/``. This facade
+keeps a compact library API for offline FG/FS scoring and deliberately does
+not vendor OmniTrav or OmniGuard; those are external runtime dependencies.
+"""
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any
 
@@ -7,75 +14,52 @@ import numpy as np
 
 
 ROOT = Path(__file__).resolve().parent
-IMPL = ROOT
+
+
 class NavigableCuriosityField:
-    """Unified FS inference with the internal FG checkpoint-compatible branch."""
+    """Offline curiosity scoring plus validity-aware frontier selection."""
 
     def __init__(self, weights_root: Path, config: dict[str, Any]):
-        self.config = config
+        self.config = dict(config)
+        self._weights_enabled = str(weights_root) not in {"", "."}
         self.weights_root = Path(weights_root).expanduser().resolve()
-        self.device = config.get("device", "cuda")
-        self.model = None
-        self.backbone = None
-        self._omnitrav = None
-        self._controller = None
-        if str(weights_root) not in ("", "."):
-            self._load()
+        self.device = str(self.config.get("device", "cuda"))
+        self._predictor = None
 
     def _load(self) -> None:
-        import torch
+        if self._predictor is not None:
+            return
+        from .runtime.curiosity.curiosity_checkpoint import B2FGFSInference
 
-        from .runtime.fs.model import RevisedDINOv2PanoramaFGFSV3
-        from .runtime.fs.model import RevisedDINOv2PanoramaFGFSV3LastBlockB2
-
-        repository = str(ROOT.parent.parent / "third_party" / "dinov2")
-        repository_parent = str(Path(repository).parent)
-        if repository_parent not in sys.path:
-            sys.path.insert(0, repository_parent)
-        dino_weight = self.weights_root / "dinov2/dinov2_vits14_pretrain.pth"
-        checkpoint = self.weights_root / "fs/step_019000.pt"
-        self.backbone = torch.hub.load(
-            repository, "dinov2_vits14", pretrained=True,
-            weights=str(dino_weight), source="local",
-        ).to(self.device).eval()
-        decoder = RevisedDINOv2PanoramaFGFSV3().to(self.device)
-        self.model = RevisedDINOv2PanoramaFGFSV3LastBlockB2(
-            self.backbone.blocks[-1], self.backbone.norm, decoder,
-        ).to(self.device).eval()
-        payload = torch.load(checkpoint, map_location="cpu", weights_only=False)
-        self.model.load_state_dict(payload["model"], strict=True)
-
-    def _tensor(self, image: np.ndarray):
-        import torch
-        import torch.nn.functional as F
-
-        value = torch.from_numpy(np.ascontiguousarray(image[..., :3]).copy()).permute(2, 0, 1).float().div_(255.0)
-        value = F.interpolate(value[None], size=(224, 448), mode="bilinear", align_corners=False).to(self.device)
-        mean = value.new_tensor([0.485, 0.456, 0.406])[None, :, None, None]
-        std = value.new_tensor([0.229, 0.224, 0.225])[None, :, None, None]
-        return (value - mean) / std
+        package_root = Path(
+            self.config.get(
+                "fs_package_root",
+                os.environ.get("PIVOTNAV_FS_PACKAGE_ROOT", self.weights_root),
+            )
+        ).expanduser()
+        self._predictor = B2FGFSInference(package_root, device=self.device)
 
     def predict(self, current_rgb: np.ndarray, goal_rgb: np.ndarray) -> dict[str, np.ndarray]:
-        if self.model is None:
+        if self._predictor is None and not self._weights_enabled:
             return {
                 "fg_probability": np.ones(12, dtype=np.float32),
                 "fs_scores": np.zeros(12, dtype=np.float32),
             }
-        import torch
-
-        current, goal = self._tensor(current_rgb), self._tensor(goal_rgb)
-        with torch.inference_mode():
-            tokens = self.backbone.prepare_tokens_with_masks(torch.cat((current, goal), dim=0))
-            for block in self.backbone.blocks[:-1]:
-                tokens = block(tokens)
-            current_tokens, goal_tokens = tokens.float().chunk(2, dim=0)
-            output = self.model(current_tokens, goal_tokens)
+        self._load()
+        output = self._predictor.yaw_ensemble({
+            "current_erp_rgb": current_rgb,
+            "goal_erp_rgb": goal_rgb,
+        })
         return {
-            "fg_probability": torch.sigmoid(output.fg_logits).cpu().numpy()[0],
-            "fs_scores": output.fs_scores.cpu().numpy()[0],
+            "fg_probability": output["fg_probabilities"][0].float().cpu().numpy(),
+            "fs_scores": output["fs_scores"][0].float().cpu().numpy(),
         }
 
-    def select(self, scores: dict[str, np.ndarray], distances: np.ndarray) -> dict[str, np.ndarray | int | None]:
+    def select(
+        self,
+        scores: dict[str, np.ndarray],
+        distances: np.ndarray,
+    ) -> dict[str, np.ndarray | int | None]:
         fg = np.asarray(scores["fg_probability"], dtype=np.float32).reshape(12)
         fs = np.asarray(scores["fs_scores"], dtype=np.float32).reshape(12)
         distance = np.asarray(distances, dtype=np.float32).reshape(-1)
@@ -95,44 +79,16 @@ class NavigableCuriosityField:
             "selected_sector": int(np.argmax(masked)) if valid.any() else None,
         }
 
-    def command(self, distances: np.ndarray, goal_heading_rad: float) -> tuple[float, float, dict[str, Any]]:
-        if self._controller is None:
-            from .controller import OmniGuardDistanceController
+    def command(self, *_args: Any, **_kwargs: Any) -> tuple[float, float, dict[str, Any]]:
+        raise RuntimeError(
+            "Online velocity control is provided by the external OmniGuard worker; "
+            "configure PIVOTNAV_OMNIGUARD_WORKER and use the formal runner."
+        )
 
-            self._controller = OmniGuardDistanceController(self.config)
-        return self._controller.step(distances, goal_heading_rad)
-
-    def predict_distances(self, rgb: np.ndarray) -> np.ndarray:
-        """Run the bundled OmniTrav inference and return 360 raw distances."""
-        if self._omnitrav is None:
-            from .omniguard.models.inference import TraversabilityInference
-
-            checkpoint = self.weights_root / "omnitrav/best_origin.pth"
-            config = {
-                "model": {
-                    "checkpoint_path": str(checkpoint),
-                    "device": self.device,
-                    "azimuth_tensor_cache": {"enabled": True},
-                    "input": {"long_edge": 512, "multiple_of": 16, "allow_upscale": False},
-                    "normalize": {"mean": [0.485, 0.456, 0.406], "std": [0.229, 0.224, 0.225]},
-                    "camera": {
-                        "model": "equirectangular", "use_ros_camera_info": False,
-                        "generate_fisheye_rays_with_unik3d": False, "rays_cache_dir": "",
-                        "frame_id": "habitat_erp", "width": 512, "height": 256,
-                        "distortion_model": "equirectangular", "d": [],
-                        "k": [81.4872, 0.0, 256.0, 0.0, 81.4872, 128.0, 0.0, 0.0, 1.0],
-                        "r": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
-                        "p": [81.4872, 0.0, 256.0, 0.0, 0.0, 81.4872, 128.0, 0.0, 0.0, 0.0, 1.0, 0.0],
-                        "fx": 81.4872, "fy": 81.4872, "cx": 256.0, "cy": 128.0,
-                    },
-                    "architecture": {"force_multi_scale": None, "multiscale_layer_indices": [2, 5, 8, 11]},
-                    "exist_logit": {"usage": "combined_distance", "probability_threshold": 0.5, "free_space_distance_m": 100.0},
-                }
-            }
-            self._omnitrav = TraversabilityInference(config)
-        # OmniTrav's public preprocessing accepts BGR, while Habitat returns RGB.
-        result = self._omnitrav.run(np.asarray(rgb)[..., :3][..., ::-1].copy())
-        return np.asarray(result.raw_distance_m, dtype=np.float32).reshape(360)
+    def predict_distances(self, *_args: Any, **_kwargs: Any) -> np.ndarray:
+        raise RuntimeError(
+            "OmniTrav is an external dependency; use the persistent OmniGuard worker."
+        )
 
 
 def smoke_curiosity(current: np.ndarray, goal: np.ndarray) -> dict[str, bool]:

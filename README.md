@@ -9,8 +9,8 @@ experiments and is organized around:
 - `Navigable_Curiosity_Field`
 
 The repository contains algorithm code only. Habitat-GS/Habitat-Lab,
-Habitat-Sim, scene assets, datasets, model checkpoints, and OmniGuard/FS
-worker resources are external prerequisites.
+Habitat-Sim, scene assets, datasets, model checkpoints, DINOv2, and
+OmniGuard/FS worker resources are external prerequisites.
 
 ## Requirements
 
@@ -24,6 +24,13 @@ Habitat-Sim interfaces. The runtime must provide:
 
 The public runner does not use GT pose, GT distance, NavMesh, or GT success as
 online policy inputs. GT fields in task manifests are post-run audit fields.
+
+## Layout
+
+`main.py` and `navigation.py` are the only public navigation entry points.
+Each paper-named module separates its online runtime, model/training code,
+evaluation code, data preparation, and external dependencies. The formal
+runner uses only `modules/*/runtime/` and the corresponding model packages.
 
 ## External Configuration
 

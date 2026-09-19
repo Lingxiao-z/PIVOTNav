@@ -453,8 +453,8 @@ class V7SequenceDecisionEngine:
         import sys
 
         sys.path.insert(0, str(integration_root))
-        from modules.Panoramic_Place_Compass.runtime.evaluate_parallax import hard_safety, make_features
-        from modules.Panoramic_Place_Compass.runtime.evaluate_safety_margin import rgb_change
+        from modules.Panoramic_Place_Compass.runtime.evidence import hard_safety, make_features
+        from modules.Panoramic_Place_Compass.runtime.evidence import rgb_change
 
         self.model = joblib.load(model_path)
         self.make_features = make_features

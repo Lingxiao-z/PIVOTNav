@@ -27,15 +27,15 @@ for path in (PPC, TBC, NCF):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
-from modules.Panoramic_Place_Compass.runtime.retrieval_adapter import R361Adapter  # noqa: E402
-from modules.Panoramic_Place_Compass.runtime.bearing_adapter import R363BearingAdapter  # noqa: E402
+from modules.Panoramic_Place_Compass.runtime.retrieval import R361Adapter  # noqa: E402
+from modules.Panoramic_Place_Compass.runtime.bearing import R363BearingAdapter  # noqa: E402
 from modules.Topological_Belief_Cascade.runtime.coordinate_bridge import velocity_action, wrap_degrees  # noqa: E402
-from modules.Panoramic_Place_Compass.runtime.egocentric_bearing_tracker import EgocentricBearingTracker  # noqa: E402
+from modules.Panoramic_Place_Compass.runtime.bearing import EgocentricBearingTracker  # noqa: E402
 from modules.Topological_Belief_Cascade.runtime.known_node_localization import KnownNodeLocalizer  # noqa: E402
-from modules.Navigable_Curiosity_Field.runtime.constants import DT, MAX_V, MAX_W, save_rgb  # noqa: E402
-from modules.Navigable_Curiosity_Field.runtime.fs_worker import ExpandedWorkerClient, atomic_json, write_jsonl  # noqa: E402
+from modules.Navigable_Curiosity_Field.runtime.workers import DT, MAX_V, MAX_W, save_rgb  # noqa: E402
+from modules.Navigable_Curiosity_Field.runtime.workers import ExpandedWorkerClient, atomic_json, write_jsonl  # noqa: E402
 from modules.Topological_Belief_Cascade.runtime.scheduler import EventDrivenGlobalScheduler, CandidateFrontierCandidate  # noqa: E402
-from modules.Navigable_Curiosity_Field.runtime.omniguard_client import OmniGuardClient  # noqa: E402
+from modules.Navigable_Curiosity_Field.runtime.workers import OmniGuardClient  # noqa: E402
 from modules.Topological_Belief_Cascade.runtime.protocol import fs_sector_to_robot_relative_bearing  # noqa: E402
 from modules.Panoramic_Place_Compass.runtime.arrival_verifier import GoalImageArrivalVerifier  # noqa: E402
 from habitat_gs import env_config, _patch_habitat_opencv_compatibility  # noqa: E402
@@ -764,13 +764,13 @@ def main() -> None:
         checkpoint_path=weights_root / "r361/r361_modular.pt",
     )
     r363 = R363BearingAdapter(
-        PPC, PPC / "bearing_head",
+        PPC, PROJECT_ROOT / "modules/Panoramic_Place_Compass/models_vpr",
         adapter_root=PPC, device=f"cuda:{args.gpu}", r361_adapter=r361,
         checkpoint_path=weights_root / "r363/r363_bearing.pt",
     )
     goal_runtime = None
     if args.goal_verifier and not args.disable_goal_verifier:
-        from modules.Panoramic_Place_Compass.runtime.dynamic_parallax import DynamicParallaxExtractor
+        from modules.Panoramic_Place_Compass.runtime.parallax import DynamicParallaxExtractor
         from modules.Panoramic_Place_Compass.runtime.arrival_sequence import V7SequenceDecisionEngine
         protocol_path = Path(os.environ.get(
             "PIVOTNAV_ARRIVAL_PROTOCOL",
