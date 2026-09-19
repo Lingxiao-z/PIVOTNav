@@ -25,18 +25,17 @@ class PanoramicPlaceCompass:
             self._load()
 
     def _load(self) -> None:
-        from .runtime.bearing import R363BearingAdapter
-        from .runtime.geometry import load_lightglue_geometry
-        from .runtime.retrieval import R361Adapter
+        from .geometry import load_lightglue_geometry
+        from .localization import R361Adapter, R363BearingAdapter
 
         self.retrieval = R361Adapter(
-            ROOT / "runtime",
+            ROOT,
             device=self.device,
             checkpoint_path=self.weights_root / "r361/r361_modular.pt",
         )
         self.bearing = R363BearingAdapter(
-            ROOT / "runtime",
-            ROOT / "models_vpr",
+            ROOT,
+            ROOT / "model",
             adapter_root=ROOT,
             device=self.device,
             r361_adapter=self.retrieval,

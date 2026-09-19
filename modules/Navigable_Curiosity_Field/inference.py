@@ -1,6 +1,6 @@
 """Small public facade for Navigable Curiosity Field.
 
-The formal runner uses the persistent workers in ``runtime/``. This facade
+The formal runner uses the persistent clients in ``workers.py``. This facade
 keeps a compact library API for offline FG/FS scoring and deliberately does
 not vendor OmniTrav or OmniGuard; those are external runtime dependencies.
 """
@@ -29,7 +29,7 @@ class NavigableCuriosityField:
     def _load(self) -> None:
         if self._predictor is not None:
             return
-        from .runtime.curiosity.curiosity_checkpoint import B2FGFSInference
+        from .model import B2FGFSInference
 
         package_root = Path(
             self.config.get(

@@ -27,4 +27,4 @@ include-package-data = true
 include = ["modules*"]
 
 [tool.setuptools.package-data]
-"modules.Panoramic_Place_Compass.runtime" = ["arrival_protocol.json"]
+"modules.Panoramic_Place_Compass" = ["arrival_protocol.json"]

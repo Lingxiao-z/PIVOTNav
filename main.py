@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Public CLI for the frozen PIVOTNav production navigation path."""
+"""Public CLI for the released PIVOTNav navigation pipeline."""
 from __future__ import annotations
 
 import argparse
@@ -58,7 +58,7 @@ def _build_single_task_manifest(task_path: Path, goal: str | None, episode: str 
 def main() -> None:
     args = parse_args()
     if args.smoke:
-        print("PIVOTNav production CLI smoke test passed")
+        print("PIVOTNav CLI smoke test passed")
         return
     if not args.scene:
         raise SystemExit("--scene is required unless --smoke is used")

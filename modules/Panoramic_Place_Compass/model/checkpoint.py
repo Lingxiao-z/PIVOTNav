@@ -1,5 +1,5 @@
+"""Load the released Panoramic Place Compass checkpoint."""
 from __future__ import annotations
-
 import hashlib
 import math
 from dataclasses import dataclass
@@ -10,15 +10,15 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from .data import MEAN, STD
-from .yaw_head import R34CrossPositionYawHead
-from .yaw_refinement import R34CrossPositionYawHeadR3
-from .bearing_head import R35RelativeTranslationBearingHead
-from .multitask import R35MultitaskSystem
-from .arrival_head import R36TemporalArrivalHead
-from .system import PanoramicVPRV2System
+from .arrival import R35MultitaskSystem, R36TemporalArrivalHead
+from .bearing import R35RelativeTranslationBearingHead, R36BearingStructuralRevision5Head
+from .core import PanoramicVPRV2System
+from .orientation import R34CrossPositionYawHead, R34CrossPositionYawHeadR3
 
-from .bearing_refinement import R36BearingStructuralRevision5Head
+MEAN = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
+STD = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
+
+
 
 
 CHECKPOINT_SCHEMA = "r361_modular_checkpoint_v1"

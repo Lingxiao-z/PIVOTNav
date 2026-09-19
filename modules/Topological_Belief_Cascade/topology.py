@@ -475,3 +475,203 @@ class CandidateFrontierNavigator:
                                 for node_id in node_ids)},
             "atomic_transaction": True,
         }
+
+# ---------------------------------------------------------------------------
+# Typed topology events
+# ---------------------------------------------------------------------------
+
+"""Hard event semantics for known-node routing and final Goal arrival."""
+
+from typing import Any, Mapping
+
+
+GOAL_FINAL_CONFIRMED = "GOAL_FINAL_CONFIRMED"
+CANDIDATE_FRONTIER_FINAL_CONFIRMED = "CANDIDATE_FRONTIER_FINAL_CONFIRMED"
+HISTORICAL_NODE_FINAL_CONFIRMED = "HISTORICAL_NODE_FINAL_CONFIRMED"
+KNOWN_NODE_LOCALIZED = "KNOWN_NODE_LOCALIZED"
+
+KNOWN_NODE_SWITCH_EVENTS = frozenset({
+    KNOWN_NODE_LOCALIZED,
+    HISTORICAL_NODE_FINAL_CONFIRMED,
+})
+
+
+def assert_stop_semantics(event: Mapping[str, Any]) -> None:
+    """Only final Goal-image confirmation may authorize Stop."""
+    if bool(event.get("stop_authorized", False)):
+        assert event.get("event_type") == GOAL_FINAL_CONFIRMED
+        assert bool(event.get("final_confirmed", False))
+
+
+def assert_known_node_event(event: Mapping[str, Any]) -> None:
+    """Known-node localization is geometry-free and cannot emit Goal/Stop."""
+    assert int(event.get("geometry_call_count", 0)) == 0
+    assert int(event.get(GOAL_FINAL_CONFIRMED, 0)) == 0
+    assert event.get("event_type") != GOAL_FINAL_CONFIRMED
+    assert not bool(event.get("stop_authorized", False))
+    assert not bool(event.get("ordinary_rgb_frame_bpl_mutation", False))
+    assert not bool(event.get("ordinary_rgb_frame_topology_mutation", False))
+    if bool(event.get("known_next_hop_switched", False)):
+        assert event.get("event_type") in KNOWN_NODE_SWITCH_EVENTS
+
+
+
+# ---------------------------------------------------------------------------
+# Candidate-frontier sector protocol
+# ---------------------------------------------------------------------------
+
+"""V5 event-driven FS/candidate_frontier protocol and coordinate contract.
+
+This module is intentionally independent from the V4 runner.  FS is called
+only at explicit graph events; ordinary control frames never invoke it.
+"""
+
+import math
+from dataclasses import dataclass
+
+NUM_SECTORS = 12
+SECTOR_WIDTH_DEG = 30.0
+FS_EVENT_REASONS = frozenset({
+    "ROOT_REGULAR_CREATED",
+    "CANDIDATE_FRONTIER_FINAL_CONFIRMED",
+    "HISTORICAL_NODE_FINAL_CONFIRMED",
+    "CANDIDATE_FRONTIER_BLOCKED",
+    "CANDIDATE_FRONTIER_EXHAUSTED",
+    "CANDIDATE_FRONTIER_EXECUTION_FAILED",
+    "FORMAL_LOOP_CONFIRMED",
+    "CANDIDATE_INVALIDATED",
+})
+
+
+def wrap_degrees(value: float) -> float:
+    return float(((float(value) + 180.0) % 360.0) - 180.0)
+
+
+def fs_sector_to_robot_relative_bearing(sector_index: int) -> float:
+    """Map the frozen FS sector contract to right-positive body bearing.
+
+    Sector 0 is robot-forward.  Increasing sectors rotate right, so the
+    canonical mapping is 0, +30, ..., +180, -150, ..., -30 degrees.
+    """
+    sector = int(sector_index) % NUM_SECTORS
+    bearing = wrap_degrees(sector * SECTOR_WIDTH_DEG)
+    return 180.0 if sector == 6 else bearing
+
+
+def robot_relative_bearing_to_sector(bearing_degrees: float) -> int:
+    return int(round(wrap_degrees(float(bearing_degrees)) / SECTOR_WIDTH_DEG)) % NUM_SECTORS
+
+
+@dataclass(frozen=True)
+class FSSchedule:
+    reason: str
+    graph_version: int
+    current_node: int
+    selected_candidate_frontier_id: str | None
+    selected_parent_node_id: int | None
+    selected_sector: int | None
+    selected_fg_score: float | None
+    selected_fs_score: float | None
+    candidates: tuple[dict, ...]
+
+
+def assert_fs_event(reason: str) -> None:
+    if reason not in FS_EVENT_REASONS:
+        raise AssertionError(f"FS_CALL_ON_NON_EVENT:{reason}")
+
+
+# ---------------------------------------------------------------------------
+# Event-driven global scheduler
+# ---------------------------------------------------------------------------
+
+"""Global regular-node/candidate_frontier FS scheduler for Integration V5."""
+
+from dataclasses import dataclass, field
+from typing import Iterable
+
+TERMINAL_STATES = frozenset({"BLOCKED", "EXHAUSTED", "VISITED", "CONFIRMED", "REJECTED", "EXECUTING"})
+
+
+@dataclass
+class CandidateFrontierCandidate:
+    candidate_frontier_id: str
+    parent_node_id: int
+    sector: int
+    fg_score: float
+    fs_score: float
+    valid: bool = True
+    lifecycle: str = "UNTRIED"
+    visit_count: int = 0
+    topology_return_cost: float = 0.0
+    turn_cost: float = 0.0
+    metadata: dict = field(default_factory=dict)
+
+    def audit(self, selected: bool, rank: int | None) -> dict:
+        return {
+            "candidate_frontier_id": self.candidate_frontier_id, "parent_node_id": self.parent_node_id,
+            "sector": self.sector, "fg_score": self.fg_score, "fs_score": self.fs_score,
+            "valid_mask": self.valid, "candidate_lifecycle": self.lifecycle,
+            "visit_count": self.visit_count, "topology_return_cost": self.topology_return_cost,
+            "turn_cost": self.turn_cost, "global_rank": rank, "selected": selected,
+        }
+
+
+class EventDrivenGlobalScheduler:
+    def __init__(self) -> None:
+        self.fs_call_count = 0
+        self.ordinary_frame_fs_call_count = 0
+        self.last_fs_step: int | None = None
+        self.records: list[dict] = []
+
+    def ordinary_frame(self, step: int) -> None:
+        # Deliberately no FS call or graph mutation.
+        del step
+
+    def schedule(self, *, reason: str, step: int, graph_version: int,
+                 current_node: int, candidates: Iterable[CandidateFrontierCandidate]) -> FSSchedule:
+        assert_fs_event(reason)
+        self.fs_call_count += 1
+        rows = list(candidates)
+        eligible = [c for c in rows if c.valid and c.lifecycle not in TERMINAL_STATES]
+        # Stable global ranking: FS, FG, visits, return cost, turn cost, ids.
+        eligible.sort(key=lambda c: (-c.fs_score, -c.fg_score, c.visit_count,
+                                     c.topology_return_cost, c.turn_cost,
+                                     c.parent_node_id, c.candidate_frontier_id))
+        selected = eligible[0] if eligible else None
+        rank = {c.candidate_frontier_id: i + 1 for i, c in enumerate(eligible)}
+        audited = tuple(c.audit(c is selected, rank.get(c.candidate_frontier_id)) for c in rows)
+        schedule = FSSchedule(
+            reason=reason, graph_version=int(graph_version), current_node=int(current_node),
+            selected_candidate_frontier_id=selected.candidate_frontier_id if selected else None,
+            selected_parent_node_id=selected.parent_node_id if selected else None,
+            selected_sector=selected.sector if selected else None,
+            selected_fg_score=selected.fg_score if selected else None,
+            selected_fs_score=selected.fs_score if selected else None,
+            candidates=audited,
+        )
+        self.records.append({
+            **schedule.__dict__, "step": int(step),
+            "actions_since_previous_fs_call": None if self.last_fs_step is None else int(step) - self.last_fs_step,
+            "selected_global_rank": 1 if selected else None,
+            "fs_call_on_ordinary_frame": False,
+        })
+        self.last_fs_step = int(step)
+        return schedule
+
+
+def build_parent_candidates(parent_node_id: int, fg_scores, fs_scores, *, valid_threshold: float = 0.5,
+                            lifecycle_by_sector: dict[int, str] | None = None,
+                            return_cost: float = 0.0) -> list[CandidateFrontierCandidate]:
+    if len(fg_scores) != 12 or len(fs_scores) != 12:
+        raise ValueError("Expanded v6 outputs must have 12 sectors")
+    # ``valid_threshold`` is retained only for API compatibility. Expanded-v6
+    # FG is auxiliary evidence; physical reachability/lifecycle must decide
+    # validity, and FS remains the primary ordering key.
+    del valid_threshold
+    lifecycle_by_sector = lifecycle_by_sector or {}
+    return [CandidateFrontierCandidate(
+        candidate_frontier_id=f"g{parent_node_id}s{sector}", parent_node_id=int(parent_node_id), sector=sector,
+        fg_score=float(fg_scores[sector]), fs_score=float(fs_scores[sector]),
+        valid=bool(return_cost < 1e6 and lifecycle_by_sector.get(sector, "UNTRIED") not in TERMINAL_STATES),
+        lifecycle=lifecycle_by_sector.get(sector, "UNTRIED"), topology_return_cost=float(return_cost),
+    ) for sector in range(12)]
