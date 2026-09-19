@@ -38,7 +38,7 @@ from modules.Topological_Belief_Cascade.runtime.scheduler import EventDrivenGlob
 from modules.Navigable_Curiosity_Field.runtime.omniguard_client import OmniGuardClient  # noqa: E402
 from modules.Topological_Belief_Cascade.runtime.protocol import fs_sector_to_robot_relative_bearing  # noqa: E402
 from modules.Panoramic_Place_Compass.runtime.arrival_verifier import GoalImageArrivalVerifier  # noqa: E402
-from habitat_gs import env_config  # noqa: E402
+from habitat_gs import env_config, _patch_habitat_opencv_compatibility  # noqa: E402
 
 CHECKPOINT_SHA = "44aa451546691f35659ce1ecc0d616d67d706217ceb5a8f2ed43cba9b132760f"
 R361_SHA = "4090261bcef45f70ba771533d1283a3ebe2b5e7d84c400d829cac25e01d79f4a"
@@ -730,6 +730,10 @@ def main() -> None:
         tasks = tasks[:args.max_tasks]
     dataset = args.phase_root / "worker_datasets" / f"{args.scene_id}.json.gz"
     build_dataset(tasks, dataset)
+    # Habitat-Lab imports its visualization map module eagerly. Apply the
+    # OpenCV/NumPy compatibility shim before that import, not only inside the
+    # later environment-config builder.
+    _patch_habitat_opencv_compatibility()
     import habitat
     from habitat.config.read_write import read_write
     habitat_root = os.environ.get("PIVOTNAV_HABITAT_ROOT")
