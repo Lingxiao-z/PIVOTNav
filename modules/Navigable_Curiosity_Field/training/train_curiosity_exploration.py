@@ -7,7 +7,7 @@ from pathlib import Path
 import torch
 from torch import nn
 
-from ..runtime.curiosity.curiosity_model import revised_dino_v3_loss
+from ..model import revised_dino_v3_loss
 
 
 def train_one_batch(

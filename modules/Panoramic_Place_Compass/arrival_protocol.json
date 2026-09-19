@@ -11,25 +11,25 @@
     "through_wall_fp_max": 0
   },
   "active_evidence": {
-    "path": "/home/renh/project/pano-navigation/outputs/integration_v2_behavioral/stage_i5/arrival_active_evidence_v2r2/merged_results.jsonl",
+    "path": "external/arrival_active_evidence_v2r2/merged_results.jsonl",
     "sha256": "46bd14297057a29ec020e87a0fcd7dae0f88005bedd081c08937300a08347b79"
   },
   "classification": "CONTROLLED_GT_BEARING_MOTION_LIVE_RGB_ARRIVAL",
   "collector": {
-    "path": "/home/renh/project/pano-navigation/integration_v2/collect_arrival_sequence_v7_live_development.py",
+    "path": "external/arrival_sequence/collect_arrival_sequence_v7_live_development.py",
     "sha256": "75668453d2448341cd7924f2dcda74f888aa1dfbcfa3304d094768fa6383c1db"
   },
   "created_at": "2026-08-17T15:44:21.867949+00:00",
   "development_protocol": {
-    "path": "/home/renh/project/pano-navigation/outputs/integration_v2_behavioral/stage_i5/arrival_sequence_distance_v7_development/protocol.json",
+    "path": "external/arrival_sequence/arrival_sequence_distance_v7_development/protocol.json",
     "sha256": "9fcaadda80410e98bc977c9596c586cb16a269121ee2e7306cb224b0c84a9c2a"
   },
   "finalizer": {
-    "path": "/home/renh/project/pano-navigation/integration_v2/finalize_arrival_sequence_v7_live_development.py",
+    "path": "external/arrival_sequence/finalize_arrival_sequence_v7_live_development.py",
     "sha256": "4a8a0df1d0d748f63b2875b8fe494e703343f885e67411245b4482eb78770f43"
   },
   "frozen_lightglue_runtime": {
-    "path": "/home/renh/project/pano-navigation/models/arrival_verifier_frozen/v3312_visual_runtime.py",
+    "path": "external/arrival_verifier_frozen/v3312_visual_runtime.py",
     "sha256": "3786e94178f60a95a135deccd016de0b1318446b08a1b030352b64e4790f227d"
   },
   "hard_safety": {
@@ -40,11 +40,11 @@
     "stale_generation_can_confirm": false
   },
   "independent_acceptance": {
-    "path": "/home/renh/project/pano-navigation/outputs/integration_v2_behavioral/stage_i5/arrival_sequence_distance_v7_independent/independent_acceptance.json",
+    "path": "external/arrival_sequence/arrival_sequence_distance_v7_independent/independent_acceptance.json",
     "sha256": "10a1108d62f258c6ee08cfa565e1c3d6bddda0c6bfec87cfdc3f4a8d9b2574e7"
   },
   "independent_metrics": {
-    "path": "/home/renh/project/pano-navigation/outputs/integration_v2_behavioral/stage_i5/arrival_sequence_distance_v7_independent/independent_policy_metrics.json",
+    "path": "external/arrival_sequence/arrival_sequence_distance_v7_independent/independent_policy_metrics.json",
     "sha256": "8a17fd506305870698a1df15e7a19da5d823ba27817716890bb22902cf9e26b4"
   },
   "lifecycle": {
@@ -76,7 +76,7 @@
   "model": {
     "device": "cpu",
     "model_id": "GRADIENT_BOOSTING_SEQUENCE_V7",
-    "path": "/home/renh/project/pano-navigation/outputs/integration_v2_behavioral/stage_i5/arrival_sequence_distance_v7_development/models/GRADIENT_BOOSTING_SEQUENCE_V7.joblib",
+    "path": "GRADIENT_BOOSTING_SEQUENCE_V7.joblib",
     "sha256": "76c0eca795cff77c563540ea61268920ccf0c6d8cc4d67baf4dcdd99f769980b"
   },
   "multihop_open": false,
@@ -89,13 +89,13 @@
   "opportunity_count": 192,
   "parallax_eligible_count": 183,
   "parallax_features": {
-    "path": "/home/renh/project/pano-navigation/outputs/integration_v2_behavioral/stage_i5/arrival_parallax_v3_development/parallax_features.jsonl",
+    "path": "external/arrival_parallax_v3_development/parallax_features.jsonl",
     "sha256": "003a9825b99dc63613994c6cd75c866e2bc4ba84b9e816869315932f51f242a8"
   },
   "production_approved": false,
   "protocol_id": "integration_v2_arrival_sequence_v7_live_development",
   "r361_adapter": {
-    "path": "/home/renh/project/pano-navigation/adapters/r361_adapter.py",
+    "path": "external/adapters/r361_adapter.py",
     "sha256": "ad41b50219d9c67c0b6de45a2b07422cb93fb9e4490106faa8558232d67a9fcd"
   },
   "resource_policy": {
@@ -107,16 +107,16 @@
     "workers_per_shard": 1
   },
   "runtime": {
-    "path": "/home/renh/project/pano-navigation/integration_v2/arrival_sequence_v7_live_runtime.py",
+    "path": "external/arrival_sequence/arrival_sequence_v7_live_runtime.py",
     "sha256": "e686f2de79a167cc6c22ee58dffbc0dce7c9a9803cf9560cacd3660fc9d43f02"
   },
   "runtime_property_tests": {
-    "path": "/home/renh/project/pano-navigation/outputs/integration_v2_behavioral/stage_i5/arrival_sequence_v7_live_runtime_preflight/runtime_property_tests_r2.json",
+    "path": "external/arrival_sequence/runtime_property_tests_r2.json",
     "sha256": "9f93535b8dcbe1a7792f7c5e53d24663d6c0ed7161465a21548225a03c75d802"
   },
   "scene_count": 12,
   "selected_candidate": {
-    "path": "/home/renh/project/pano-navigation/outputs/integration_v2_behavioral/stage_i5/arrival_sequence_distance_v7_development/selected_candidate.json",
+    "path": "external/arrival_sequence/selected_candidate.json",
     "sha256": "750252011c78e863ed8bbe035b1ece4c848afe2185c312a3859a0bb04ed9bba0"
   },
   "shards": [
@@ -142,12 +142,12 @@
     }
   ],
   "source_manifest": {
-    "path": "/home/renh/project/habitat-gs-omniguard-validation/output/omniguard_v3312_boundary_active_approach/effective_development_trial_manifest.jsonl",
+    "path": "external/omniguard_validation/effective_development_trial_manifest.jsonl",
     "sha256": "b09b539acb62210e8aa77bf9801796dc06d89a919245464ce81a694f2f510a23"
   },
   "status": "FROZEN_BEFORE_CONTROLLED_LIVE_COLLECTION",
   "target_manifest": {
-    "path": "/home/renh/project/pano-navigation/outputs/integration_v2_behavioral/stage_i5/arrival_sequence_v7_live_development/target_manifest.jsonl",
+    "path": "external/arrival_sequence/target_manifest.jsonl",
     "sha256": "4a32329946342cd94f0e6e552002e1f80ba588d1e54745319672c0c0320b8ed1"
   }
 }

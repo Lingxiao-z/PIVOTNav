@@ -1,3 +1,4 @@
+"""Patch-token relative bearing head used by the R36.3 checkpoint."""
 from __future__ import annotations
 
 import math

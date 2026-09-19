@@ -3,14 +3,17 @@ import argparse,gzip,hashlib,json,math,os,subprocess,sys,time
 from pathlib import Path
 import cv2,numpy as np,torch
 from PIL import Image
-from modules.Panoramic_Place_Compass.runtime.arrival_core import BoundaryVerifier,Decision,Evidence,Thresholds,absolute_decision,direct_target_contract,geometry_strength
+from modules.Panoramic_Place_Compass.arrival import BoundaryVerifier,Decision,Evidence,Thresholds,absolute_decision,direct_target_contract,geometry_strength
 
-ROOT=Path(os.environ.get('PIVOTNAV_OMNIGUARD_VALIDATION_ROOT', Path(__file__).resolve().parent))
+ROOT=Path(os.environ.get('PIVOTNAV_OMNIGUARD_VALIDATION_ROOT', Path(__file__).resolve().parents[4]))
 SOURCE_OUT=ROOT/'output/omniguard_v3312_boundary_active_approach'
-PANO=Path(os.environ.get('PIVOTNAV_NAVIGATION_ROOT', Path(__file__).resolve().parents[3]))
+PANO=Path(os.environ.get('PIVOTNAV_NAVIGATION_ROOT', Path(__file__).resolve().parents[4]))
 OUT=PANO/'outputs/integration_v2_behavioral/stage_i5/arrival_active_evidence_v2r2'
 PROJECT=Path(os.environ.get('PIVOTNAV_HABITAT_ROOT', Path.cwd()))
-OMNI=Path('/home/renh/project/IsaacLab/scripts/reinforcement_learning/navigation/algorithm_layer/OmniGuard'); WEIGHT=OMNI/'deployment/checkpoints/traversability_omni/best_origin.pth'
+OMNI=Path(os.environ.get('PIVOTNAV_OMNIGUARD_ROOT', '')).expanduser()
+WEIGHT=Path(os.environ.get('PIVOTNAV_OMNIGUARD_CHECKPOINT', '')).expanduser()
+WORKER=Path(os.environ.get('PIVOTNAV_OMNIGUARD_WORKER', str(ROOT/'omniguard_worker.py'))).expanduser()
+PYTHON=os.environ.get('PIVOTNAV_OMNIGUARD_PYTHON', sys.executable)
 def sha(p):
  h=hashlib.sha256()
  with open(p,'rb') as f:
@@ -54,6 +57,8 @@ def pair_from_encoding(runtime,q,g):
  return {'arrival_probability':float(probability[0]),'vpr_similarity':float(similarity[0]),'yaw_degrees':float(yaw['predicted_yaw_degrees'][0]),'yaw_confidence':float(yaw['yaw_confidence'][0])}
 def main():
  ap=argparse.ArgumentParser();ap.add_argument('--start',type=int,required=True);ap.add_argument('--limit',type=int,default=48);ap.add_argument('--gpu',type=int,required=True);ap.add_argument('--run-id',required=True);a=ap.parse_args()
+ if not OMNI.is_dir() or not WEIGHT.is_file() or not WORKER.is_file():
+  raise RuntimeError('set PIVOTNAV_OMNIGUARD_ROOT, PIVOTNAV_OMNIGUARD_CHECKPOINT, and PIVOTNAV_OMNIGUARD_WORKER before active-evidence collection')
  run=OUT/'shards'/a.run_id
  if run.exists():raise SystemExit(f'refuse overwrite {run}')
  run.mkdir(parents=True);trials=[json.loads(x) for x in open(SOURCE_OUT/'effective_development_trial_manifest.jsonl') if x.strip()];subset=trials[a.start:a.start+a.limit]
@@ -63,8 +68,8 @@ def main():
  missing=[t['trial_id'] for t in subset if t['trial_id'] not in collections]
  if missing:raise RuntimeError(f'missing collections {missing[:5]} count={len(missing)}')
  sys.path[:0]=[str(PANO),str(PANO/'models/arrival_verifier_frozen')]
- from modules.Panoramic_Place_Compass.runtime.retrieval import R361Adapter
- from modules.Panoramic_Place_Compass.runtime.geometry import load_lightglue_geometry
+ from modules.Panoramic_Place_Compass.localization import R361Adapter
+ from modules.Panoramic_Place_Compass.geometry import load_lightglue_geometry
  r=R361Adapter(PANO/'models/r361',device='cpu');lg=load_lightglue_geometry(f'cuda:{a.gpu}')
  targets=[];target_enc=[]
  for t in trials:
@@ -76,7 +81,7 @@ def main():
  if not target_enc:
   raise RuntimeError('no collected target references available for active verification')
  gallery=torch.nn.functional.normalize(torch.cat([x['global_descriptor'].float() for x in target_enc]),dim=-1);gindex={x[0]:i for i,x in enumerate(targets)}
- omni=Worker(['/home/renh/anaconda3/envs/OmniGuard/bin/python',str(ROOT/'omniguard_worker.py'),'--repo',str(OMNI),'--checkpoint',str(WEIGHT),'--device',f'cuda:{a.gpu}','--output-dir',str(run/'omniguard'),'--profile','short_edge_v1'],run/'omniguard.stderr.log')
+ omni=Worker([PYTHON,str(WORKER),'--repo',str(OMNI),'--checkpoint',str(WEIGHT),'--device',f'cuda:{a.gpu}','--output-dir',str(run/'omniguard'),'--profile','short_edge_v1'],run/'omniguard.stderr.log')
  import habitat
  results=[];steps=[];lat=[];contract=direct_target_contract()
  try:

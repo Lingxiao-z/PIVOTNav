@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-"""Phase 6 event-driven FS candidate_frontier-node Goal-Image navigation runner.
-
-This isolated runner keeps historical U3/U5 files unchanged.
-"""
+"""Event-driven PIVOTNav image-goal navigation runner."""
 from __future__ import annotations
 
 import argparse
@@ -11,7 +8,6 @@ import heapq
 import json
 import math
 import os
-import sys
 import time
 from pathlib import Path
 from typing import Any
@@ -20,24 +16,31 @@ import numpy as np
 from PIL import Image
 
 PROJECT_ROOT = Path(__file__).resolve().parent
-PPC = PROJECT_ROOT / "modules/Panoramic_Place_Compass/runtime"
-TBC = PROJECT_ROOT / "modules/Topological_Belief_Cascade/runtime"
-NCF = PROJECT_ROOT / "modules/Navigable_Curiosity_Field/runtime"
-for path in (PPC, TBC, NCF):
-    if str(path) not in sys.path:
-        sys.path.insert(0, str(path))
+PPC = PROJECT_ROOT / "modules/Panoramic_Place_Compass"
 
-from modules.Panoramic_Place_Compass.runtime.retrieval import R361Adapter  # noqa: E402
-from modules.Panoramic_Place_Compass.runtime.bearing import R363BearingAdapter  # noqa: E402
-from modules.Topological_Belief_Cascade.runtime.coordinate_bridge import velocity_action, wrap_degrees  # noqa: E402
-from modules.Panoramic_Place_Compass.runtime.bearing import EgocentricBearingTracker  # noqa: E402
-from modules.Topological_Belief_Cascade.runtime.known_node_localization import KnownNodeLocalizer  # noqa: E402
-from modules.Navigable_Curiosity_Field.runtime.workers import DT, MAX_V, MAX_W, save_rgb  # noqa: E402
-from modules.Navigable_Curiosity_Field.runtime.workers import ExpandedWorkerClient, atomic_json, write_jsonl  # noqa: E402
-from modules.Topological_Belief_Cascade.runtime.scheduler import EventDrivenGlobalScheduler, CandidateFrontierCandidate  # noqa: E402
-from modules.Navigable_Curiosity_Field.runtime.workers import OmniGuardClient  # noqa: E402
-from modules.Topological_Belief_Cascade.runtime.protocol import fs_sector_to_robot_relative_bearing  # noqa: E402
-from modules.Panoramic_Place_Compass.runtime.arrival_verifier import GoalImageArrivalVerifier  # noqa: E402
+from modules.Panoramic_Place_Compass.localization import (  # noqa: E402
+    EgocentricBearingTracker,
+    R361Adapter,
+    R363BearingAdapter,
+)
+from modules.Topological_Belief_Cascade.localization import velocity_action, wrap_degrees  # noqa: E402
+from modules.Topological_Belief_Cascade.localization import KnownNodeLocalizer  # noqa: E402
+from modules.Navigable_Curiosity_Field.workers import (  # noqa: E402
+    DT,
+    MAX_V,
+    MAX_W,
+    ExpandedWorkerClient,
+    OmniGuardClient,
+    atomic_json,
+    save_rgb,
+    write_jsonl,
+)
+from modules.Topological_Belief_Cascade.topology import (  # noqa: E402
+    CandidateFrontierCandidate,
+    EventDrivenGlobalScheduler,
+    fs_sector_to_robot_relative_bearing,
+)
+from modules.Panoramic_Place_Compass.arrival import GoalImageArrivalVerifier  # noqa: E402
 from habitat_gs import env_config, _patch_habitat_opencv_compatibility  # noqa: E402
 
 CHECKPOINT_SHA = "44aa451546691f35659ce1ecc0d616d67d706217ceb5a8f2ed43cba9b132760f"
@@ -182,7 +185,7 @@ def run_episode(env: Any, observation: Any, task: dict, phase_root: Path,
     difficulty = str(task["difficulty"]).strip().lower()
     budget = int(task.get("budget_steps") or DIFFICULTY_BUDGETS[difficulty])
     if bearing_mode != "visual":
-        raise ValueError("Phase 6 requires the visual-bearing control mode")
+        raise ValueError("PIVOTNav requires the visual-bearing control mode")
     regular: dict[int, dict[str, Any]] = {}
     candidate_frontiers: dict[str, dict[str, Any]] = {}
     edges: list[dict[str, Any]] = []
@@ -240,7 +243,7 @@ def run_episode(env: Any, observation: Any, task: dict, phase_root: Path,
     estimated_heading_by_node: dict[int, float] = {0: 0.0}
     # This position is retained only for post-run success/SPL auditing.  It is
     # never passed to FS, VPR, OmniGuard, the scheduler, or the verifier.
-    # Phase 5 base tasks and the frozen Hard+/Hard++ extension use different
+    # Legacy base tasks and the Hard+/Hard++ extension use different
     # names for the offline-only audit block.  Both carry the same goal
     # position; normalize the schema at this boundary without exposing it to
     # the online policy.
@@ -764,21 +767,29 @@ def main() -> None:
         checkpoint_path=weights_root / "r361/r361_modular.pt",
     )
     r363 = R363BearingAdapter(
-        PPC, PROJECT_ROOT / "modules/Panoramic_Place_Compass/models_vpr",
+        PPC, PROJECT_ROOT / "modules/Panoramic_Place_Compass/model",
         adapter_root=PPC, device=f"cuda:{args.gpu}", r361_adapter=r361,
         checkpoint_path=weights_root / "r363/r363_bearing.pt",
     )
     goal_runtime = None
     if args.goal_verifier and not args.disable_goal_verifier:
-        from modules.Panoramic_Place_Compass.runtime.parallax import DynamicParallaxExtractor
-        from modules.Panoramic_Place_Compass.runtime.arrival_sequence import V7SequenceDecisionEngine
+        from modules.Panoramic_Place_Compass.geometry import DynamicParallaxExtractor
+        from modules.Panoramic_Place_Compass.arrival import V7SequenceDecisionEngine
         protocol_path = Path(os.environ.get(
             "PIVOTNAV_ARRIVAL_PROTOCOL",
-            PROJECT_ROOT / "modules/Panoramic_Place_Compass/runtime/arrival_protocol.json",
-        ))
+            PROJECT_ROOT / "modules/Panoramic_Place_Compass/arrival_protocol.json",
+        )).expanduser().resolve()
         protocol = json.loads(protocol_path.read_text())
         model = protocol["model"]
-        model_path = Path(os.environ.get("PIVOTNAV_ARRIVAL_MODEL", model["path"])).expanduser().resolve()
+        configured_model = os.environ.get("PIVOTNAV_ARRIVAL_MODEL")
+        model_path = Path(configured_model).expanduser().resolve() if configured_model else Path(model["path"]).expanduser()
+        if not model_path.is_absolute():
+            model_path = (protocol_path.parent / model_path).resolve()
+        if not model_path.is_file():
+            raise RuntimeError(
+                "arrival model is not configured; set PIVOTNAV_ARRIVAL_MODEL "
+                f"to a readable joblib file (looked for {model_path})"
+            )
         goal_runtime = {
             "device": f"cuda:{args.gpu}",
             "dynamic_parallax": DynamicParallaxExtractor(

@@ -28,9 +28,10 @@ online policy inputs. GT fields in task manifests are post-run audit fields.
 ## Layout
 
 `main.py` and `navigation.py` are the only public navigation entry points.
-Each paper-named module separates its online runtime, model/training code,
-evaluation code, data preparation, and external dependencies. The formal
-runner uses only `modules/*/runtime/` and the corresponding model packages.
+Each paper-named module keeps a small public inference facade next to its
+online implementation, then separates training, evaluation, and data
+preparation. Files are grouped by algorithm responsibility rather than by
+historical experiment phase.
 
 ## External Configuration
 
@@ -51,10 +52,15 @@ arrival_frozen_root: /path/to/arrival-verifier-runtime
 arrival_dependency_root: /path/to/arrival-runtime-dependencies
 arrival_protocol: /path/to/arrival_protocol.json
 arrival_model: /path/to/GRADIENT_BOOSTING_SEQUENCE_V7.joblib
+# Optional: an external parallax protocol for the offline extractor CLI.
+# parallax_protocol: /path/to/parallax_protocol.json
 ```
 
 Weights are expected under `weights_root`, including the R36.1, R36.3 and FS
 checkpoints. No checkpoints or scene data are committed to this repository.
+The arrival protocol is a portable manifest; its external frozen resources are
+resolved relative to that manifest or can be overridden with
+`PIVOTNAV_ARRIVAL_MODEL` and `PIVOTNAV_ARRIVAL_FROZEN_ROOT`.
 
 ## Run
 
