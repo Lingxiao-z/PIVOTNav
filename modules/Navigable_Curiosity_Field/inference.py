@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -9,11 +8,6 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parent
 IMPL = ROOT
-for _path in (ROOT, ROOT / "panorama_fs"):
-    if str(_path) not in sys.path:
-        sys.path.insert(0, str(_path))
-
-
 class NavigableCuriosityField:
     """Unified FS inference with the internal FG checkpoint-compatible branch."""
 
@@ -31,8 +25,8 @@ class NavigableCuriosityField:
     def _load(self) -> None:
         import torch
 
-        from panorama_fs.dino_fgfs_revision3 import RevisedDINOv2PanoramaFGFSV3
-        from panorama_fs.dino_fgfs_revision3_b2 import RevisedDINOv2PanoramaFGFSV3LastBlockB2
+        from .runtime.fs.model import RevisedDINOv2PanoramaFGFSV3
+        from .runtime.fs.model import RevisedDINOv2PanoramaFGFSV3LastBlockB2
 
         repository = str(ROOT.parent.parent / "third_party" / "dinov2")
         repository_parent = str(Path(repository).parent)

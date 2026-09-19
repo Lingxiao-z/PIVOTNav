@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import sys
 import hashlib
 from pathlib import Path
 from typing import Any
@@ -12,11 +11,6 @@ from .model import CompassOutput
 
 
 ROOT = Path(__file__).resolve().parent
-for path in (ROOT, ROOT / "pano_vpr_v2", ROOT / "bearing"):
-    if str(path) not in sys.path:
-        sys.path.insert(0, str(path))
-
-
 def _prepare(rgb: np.ndarray):
     import torch
     from PIL import Image
@@ -58,7 +52,9 @@ class PanoramicPlaceCompass:
             "PANORAMIC_VPR_DINOV2_WEIGHT",
             str(self.weights_root / "dinov2/dinov2_vits14_pretrain.pth"),
         )
-        from pano_vpr_v2.r361_modular_inference import load_r361_modular_package
+        from modules.Panoramic_Place_Compass.pano_vpr_v2.r361_modular_inference import (
+            load_r361_modular_package,
+        )
 
         checkpoint = self.weights_root / "r361/r361_modular.pt"
         self.runtime = load_r361_modular_package(checkpoint, self.config.get("device", "cuda"))

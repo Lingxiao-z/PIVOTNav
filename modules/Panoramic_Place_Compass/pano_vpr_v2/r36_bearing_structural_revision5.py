@@ -7,11 +7,11 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from pano_vpr_v2.r35_bearing_head import (
+from .r35_bearing_head import (
     circular_error_degrees_tensor,
     wrap_degrees_tensor,
 )
-from r36_bearing_structural_revision4 import (
+from .r36_bearing_structural_revision4 import (
     R36BearingStructuralRevision4Config,
     R36BearingStructuralRevision4Head,
     r36_bearing_structural_revision4_losses,

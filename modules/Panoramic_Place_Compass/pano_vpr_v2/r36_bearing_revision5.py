@@ -6,8 +6,8 @@ from typing import Any
 import torch
 from torch.nn import functional as F
 
-from pano_vpr_v2.r35_bearing_head import wrap_degrees_tensor
-from pano_vpr_v2.r36_bearing_revision4 import (
+from .r35_bearing_head import wrap_degrees_tensor
+from .r36_bearing_revision4 import (
     R36BearingRevision4Config,
     R36BearingRevision4Head,
 )

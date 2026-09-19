@@ -18,7 +18,7 @@ from .r35_multitask_system import R35MultitaskSystem
 from .r36_temporal_arrival_head import R36TemporalArrivalHead
 from .system import PanoramicVPRV2System
 
-from r36_bearing_structural_revision5 import R36BearingStructuralRevision5Head
+from .r36_bearing_structural_revision5 import R36BearingStructuralRevision5Head
 
 
 CHECKPOINT_SCHEMA = "r361_modular_checkpoint_v1"
@@ -122,7 +122,7 @@ class R361ModularRuntime(nn.Module):
         with torch.inference_mode(), torch.autocast(
             device_type=self.device.type,
             dtype=torch.bfloat16,
-            enabled=False,
+            enabled=self.device.type == "cuda",
         ):
             encoded = self._encode_normalized(images)
         return {
@@ -211,7 +211,7 @@ class R361ModularRuntime(nn.Module):
         with torch.inference_mode(), torch.autocast(
             device_type=self.device.type,
             dtype=torch.bfloat16,
-            enabled=False,
+            enabled=self.device.type == "cuda",
         ):
             yaw = self._track_y(source, goal)
             private = self.arrival_feature_bearing_head(source["tokens"], goal["tokens"])
@@ -271,7 +271,7 @@ class R361ModularRuntime(nn.Module):
         with torch.inference_mode(), torch.autocast(
             device_type=self.device.type,
             dtype=torch.bfloat16,
-            enabled=False,
+            enabled=self.device.type == "cuda",
         ):
             output = self.formal_bearing_head(source["tokens"], goal["tokens"])
         degrees = output["bearing_angle_degrees"].float()

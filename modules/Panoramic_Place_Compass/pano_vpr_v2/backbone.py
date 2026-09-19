@@ -3,7 +3,6 @@ from __future__ import annotations
 import hashlib
 import os
 import subprocess
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List
@@ -15,6 +14,7 @@ from torch import nn
 DINOV2_REPO = "facebookresearch/dinov2"
 DINOV2_MODEL = "dinov2_vits14"
 DINOV2_COMMIT = "7764ea0f912e53c92e82eb78a2a1631e92725fc8"
+DINOV2_HUBCONF_SHA256 = "c1f5090e78ff940b72c076d2bf9c0310d1707c946b3d10e2d6f2b0bdf56a6f64"
 DINOV2_LICENSE = "Apache-2.0"
 PROJECT_ROOT = Path(os.environ.get(
     "PIVOTNAV_REPO_ROOT", str(Path(__file__).resolve().parents[3])
@@ -102,15 +102,14 @@ def verify_dinov2_source_tree(include_tree_sha: bool = False) -> Dict[str, objec
     head = _git_head(DINOV2_LOCAL_CHECKOUT) if exists else None
     hubconf = DINOV2_LOCAL_CHECKOUT / "hubconf.py"
     license_file = DINOV2_LOCAL_CHECKOUT / "LICENSE"
+    hubconf_sha = sha256_path(hubconf) if hubconf.is_file() else None
     status: Dict[str, object] = {
         "path": str(DINOV2_LOCAL_CHECKOUT),
         "exists": exists,
         "expected_commit": DINOV2_COMMIT,
         "actual_commit": head,
-        "commit_matches": head == DINOV2_COMMIT or (
-            head is None and hubconf.is_file() and license_file.is_file()
-        ),
-        "hubconf_sha256": sha256_path(hubconf) if hubconf.is_file() else None,
+        "commit_matches": head == DINOV2_COMMIT or hubconf_sha == DINOV2_HUBCONF_SHA256,
+        "hubconf_sha256": hubconf_sha,
         "license_sha256": sha256_path(license_file) if license_file.is_file() else None,
     }
     if include_tree_sha and exists:
@@ -132,15 +131,12 @@ class DINOv2S14Backbone(nn.Module):
         # Bind runtime code to the fixed local checkout. This avoids floating
         # torch.hub default-branch loads while still reusing the verified cached
         # official weight.
-        if str(DINOV2_LOCAL_CHECKOUT.parent) not in sys.path:
-            sys.path.insert(0, str(DINOV2_LOCAL_CHECKOUT.parent))
         os.environ.setdefault("TORCH_HOME", str(PROJECT_ROOT / "cache" / "torch"))
         self.model = torch.hub.load(
             str(DINOV2_LOCAL_CHECKOUT),
             DINOV2_MODEL,
             source="local",
             pretrained=True,
-            weights=str(DINOV2_CACHED_WEIGHT),
         )
         self._trainable_block_count = 0
         if freeze:

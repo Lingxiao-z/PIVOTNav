@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Phase 6 event-driven FS ghost-node Goal-Image navigation runner.
+"""Phase 6 event-driven FS candidate_frontier-node Goal-Image navigation runner.
 
 This isolated runner keeps historical U3/U5 files unchanged.
 """
@@ -20,24 +20,24 @@ import numpy as np
 from PIL import Image
 
 PROJECT_ROOT = Path(__file__).resolve().parent
-PPC = PROJECT_ROOT / "modules/Panoramic_Place_Compass/production"
-TBC = PROJECT_ROOT / "modules/Topological_Belief_Cascade/production"
-NCF = PROJECT_ROOT / "modules/Navigable_Curiosity_Field/production"
+PPC = PROJECT_ROOT / "modules/Panoramic_Place_Compass/runtime"
+TBC = PROJECT_ROOT / "modules/Topological_Belief_Cascade/runtime"
+NCF = PROJECT_ROOT / "modules/Navigable_Curiosity_Field/runtime"
 for path in (PPC, TBC, NCF):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
-from modules.Panoramic_Place_Compass.production.retrieval_adapter import R361Adapter  # noqa: E402
-from modules.Panoramic_Place_Compass.production.bearing_adapter import R363BearingAdapter  # noqa: E402
-from modules.Topological_Belief_Cascade.production.coordinate_bridge import velocity_action, wrap_degrees  # noqa: E402
-from modules.Panoramic_Place_Compass.production.egocentric_bearing_tracker import EgocentricBearingTracker  # noqa: E402
-from modules.Topological_Belief_Cascade.production.known_node_localization import KnownNodeLocalizer  # noqa: E402
-from modules.Navigable_Curiosity_Field.production.constants import DT, MAX_V, MAX_W, save_rgb  # noqa: E402
-from modules.Navigable_Curiosity_Field.production.fs_worker import ExpandedWorkerClient, atomic_json, write_jsonl  # noqa: E402
-from modules.Topological_Belief_Cascade.production.scheduler import EventDrivenGlobalScheduler, CandidateFrontierCandidate  # noqa: E402
-from modules.Navigable_Curiosity_Field.production.omniguard_client import OmniGuardClient  # noqa: E402
-from modules.Topological_Belief_Cascade.production.protocol import fs_sector_to_robot_relative_bearing  # noqa: E402
-from modules.Panoramic_Place_Compass.production.arrival_verifier import GoalImageArrivalVerifier  # noqa: E402
+from modules.Panoramic_Place_Compass.runtime.retrieval_adapter import R361Adapter  # noqa: E402
+from modules.Panoramic_Place_Compass.runtime.bearing_adapter import R363BearingAdapter  # noqa: E402
+from modules.Topological_Belief_Cascade.runtime.coordinate_bridge import velocity_action, wrap_degrees  # noqa: E402
+from modules.Panoramic_Place_Compass.runtime.egocentric_bearing_tracker import EgocentricBearingTracker  # noqa: E402
+from modules.Topological_Belief_Cascade.runtime.known_node_localization import KnownNodeLocalizer  # noqa: E402
+from modules.Navigable_Curiosity_Field.runtime.constants import DT, MAX_V, MAX_W, save_rgb  # noqa: E402
+from modules.Navigable_Curiosity_Field.runtime.fs_worker import ExpandedWorkerClient, atomic_json, write_jsonl  # noqa: E402
+from modules.Topological_Belief_Cascade.runtime.scheduler import EventDrivenGlobalScheduler, CandidateFrontierCandidate  # noqa: E402
+from modules.Navigable_Curiosity_Field.runtime.omniguard_client import OmniGuardClient  # noqa: E402
+from modules.Topological_Belief_Cascade.runtime.protocol import fs_sector_to_robot_relative_bearing  # noqa: E402
+from modules.Panoramic_Place_Compass.runtime.arrival_verifier import GoalImageArrivalVerifier  # noqa: E402
 from habitat_gs import env_config  # noqa: E402
 
 CHECKPOINT_SHA = "44aa451546691f35659ce1ecc0d616d67d706217ceb5a8f2ed43cba9b132760f"
@@ -268,15 +268,15 @@ def run_episode(env: Any, observation: Any, task: dict, phase_root: Path,
         target_encoding_cache[node_id] = encoding
         for sector in range(12):
             candidate_frontier_id = f"g{node_id}s{sector}"
-            candidate_frontiers[candidate_frontier_id] = {"ghost_id": candidate_frontier_id, "parent_node_id": node_id, "sector": sector,
+            candidate_frontiers[candidate_frontier_id] = {"candidate_frontier_id": candidate_frontier_id, "parent_node_id": node_id, "sector": sector,
                                 "state": "UNTRIED", "fg_score": float("-inf"), "fs_score": float("-inf"),
                                 "visit_count": 0, "created_step": step}
-            candidate_frontier_events.append({"event_type": "GHOST_CREATED", "step": step, **candidate_frontiers[candidate_frontier_id]})
+            candidate_frontier_events.append({"event_type": "CANDIDATE_FRONTIER_CREATED", "step": step, **candidate_frontiers[candidate_frontier_id]})
         graph_version += 1
         node_events.append({"event_type": "REGULAR_CREATED", "step": step, "graph_version": graph_version,
                             "node_id": node_id, "parent_id": parent, "ordinary_rgb_frame": False})
         belief = {str(key): (1.0 if key == node_id else 0.0) for key in regular}
-        bpl_events.append({"event_type": "GHOST_FINAL_CONFIRMED" if parent is not None else "ROOT_REGULAR_CREATED",
+        bpl_events.append({"event_type": "CANDIDATE_FRONTIER_FINAL_CONFIRMED" if parent is not None else "ROOT_REGULAR_CREATED",
                            "step": step, "node_id": node_id, "belief_after": belief,
                            "belief_sum": sum(belief.values()), "ordinary_rgb_frame": False,
                            "stop_authorized": False})
@@ -293,7 +293,7 @@ def run_episode(env: Any, observation: Any, task: dict, phase_root: Path,
                 candidate_frontier = candidate_frontiers[f"g{node_id}s{sector}"]
                 candidate_frontier["fg_score"], candidate_frontier["fs_score"] = float(fg[sector]), float(fs[sector])
                 candidates.append(CandidateFrontierCandidate(
-                    candidate_frontier["ghost_id"], node_id, sector, float(fg[sector]), float(fs[sector]),
+                    candidate_frontier["candidate_frontier_id"], node_id, sector, float(fg[sector]), float(fs[sector]),
                     # FG is auxiliary evidence only; OmniGuard owns runtime
                     # safety and FS remains the primary policy value.
                     valid=bool(return_cost < 1e6),
@@ -314,8 +314,8 @@ def run_episode(env: Any, observation: Any, task: dict, phase_root: Path,
                 selected_change_events.append({
                     "step": step,
                     "reason": reason,
-                    "old_ghost_id": previous_selected,
-                    "new_ghost_id": result.selected_candidate_frontier_id,
+                    "old_candidate_frontier_id": previous_selected,
+                    "new_candidate_frontier_id": result.selected_candidate_frontier_id,
                     "old_sector": candidate_frontiers[previous_selected]["sector"] if previous_selected in candidate_frontiers else None,
                     "new_sector": candidate_frontiers[result.selected_candidate_frontier_id]["sector"],
                 })
@@ -355,12 +355,12 @@ def run_episode(env: Any, observation: Any, task: dict, phase_root: Path,
                                          "GOAL_FINAL_CONFIRMED": 1, "runtime_gt_inputs": []})
                         break
             if selected_id is None:
-                per_step.append({"step": step, "event_type": "NO_VALID_GLOBAL_GHOST"})
+                per_step.append({"step": step, "event_type": "NO_VALID_GLOBAL_CANDIDATE_FRONTIER"})
                 break
             # Snapshot the target before this control frame. A schedule may run
             # after env.step; that new target belongs to the next frame's log.
-            selected_ghost_before_step = selected_id
-            candidate_frontier = candidate_frontiers[selected_ghost_before_step]
+            selected_candidate_frontier_before_step = selected_id
+            candidate_frontier = candidate_frontiers[selected_candidate_frontier_before_step]
             parent = int(candidate_frontier["parent_node_id"])
             control_bearing: float | None
             control_source: str
@@ -369,12 +369,12 @@ def run_episode(env: Any, observation: Any, task: dict, phase_root: Path,
                 route = graph_path(edges, current_node, parent)
                 if len(route) < 2:
                     candidate_frontier["state"] = "BLOCKED"
-                    candidate_frontier_events.append({"event_type": "GHOST_BLOCKED", "step": step,
-                                         "ghost_id": selected_id, "reason": "PARENT_UNREACHABLE"})
+                    candidate_frontier_events.append({"event_type": "CANDIDATE_FRONTIER_BLOCKED", "step": step,
+                                         "candidate_frontier_id": selected_id, "reason": "PARENT_UNREACHABLE"})
                     non_action_event_count += 1
-                    non_action_events.append({"step": step, "event_type": "GHOST_BLOCKED",
+                    non_action_events.append({"step": step, "event_type": "CANDIDATE_FRONTIER_BLOCKED",
                                               "reason": "PARENT_UNREACHABLE", "action_count": action_count})
-                    selected_id = schedule("GHOST_BLOCKED", step)
+                    selected_id = schedule("CANDIDATE_FRONTIER_BLOCKED", step)
                     continue
                 next_return = int(route[1])
                 if route_target != next_return:
@@ -485,7 +485,7 @@ def run_episode(env: Any, observation: Any, task: dict, phase_root: Path,
                 raw_summary = None
             if current_node == parent and align_only and not verifier_active_before_action:
                 linear = 0.0
-                controller_mode = "ALIGN_PARENT_TO_FS_GHOST"
+                controller_mode = "ALIGN_PARENT_TO_FS_CANDIDATE_FRONTIER"
             # Sliding is part of the validated Habitat velocity-control bridge:
             # it lets OmniGuard's local policy deflect around an obstacle instead
             # of repeatedly issuing forward commands that cannot move the agent.
@@ -524,7 +524,7 @@ def run_episode(env: Any, observation: Any, task: dict, phase_root: Path,
                 collision_proxy_count += 1
             # A goal-verifier rotation/approach action belongs exclusively to
             # final-goal confirmation.  It must not advance or complete the
-            # currently selected FS ghost segment.
+            # currently selected FS candidate_frontier segment.
             if (not verifier_active_before_action) and current_node == parent and segment_id == selected_id:
                 segment_steps += 1
                 forward_ready = bool(segment_aligned and abs(float(control_bearing or 0.0)) <= 15.0)
@@ -540,14 +540,14 @@ def run_episode(env: Any, observation: Any, task: dict, phase_root: Path,
                 )
                 if segment_blocked_frames >= BLOCKED_FRAME_LIMIT or segment_stasis_frames >= BLOCKED_FRAME_LIMIT:
                     candidate_frontier["state"] = "BLOCKED"
-                    candidate_frontier_events.append({"event_type": "GHOST_BLOCKED", "step": step, "ghost_id": selected_id,
+                    candidate_frontier_events.append({"event_type": "CANDIDATE_FRONTIER_BLOCKED", "step": step, "candidate_frontier_id": selected_id,
                                          "reason": ("OMNIGUARD_NO_FORWARD_COMMAND"
                                                     if segment_blocked_frames >= BLOCKED_FRAME_LIMIT
                                                     else "RGB_STASIS_DURING_FORWARD_COMMAND"),
                                          "segment_steps": segment_steps,
                                          "segment_stasis_frames": segment_stasis_frames})
                     segment_id = None
-                    selected_id = schedule("GHOST_BLOCKED", step)
+                    selected_id = schedule("CANDIDATE_FRONTIER_BLOCKED", step)
                 else:
                     # The task contract grants the agent the capability to
                     # execute a commanded 3m segment.  RGB stasis is tracked
@@ -565,21 +565,21 @@ def run_episode(env: Any, observation: Any, task: dict, phase_root: Path,
                     estimated_heading_by_node[new_node] = float(estimated_heading_deg)
                     add_regular(new_node, source_node, step, observation, estimated_heading_deg)
                     current_node = new_node
-                    candidate_frontier_events.append({"event_type": "GHOST_FINAL_CONFIRMED", "step": step,
-                                         "ghost_id": selected_id, "new_regular_node_id": new_node,
+                    candidate_frontier_events.append({"event_type": "CANDIDATE_FRONTIER_FINAL_CONFIRMED", "step": step,
+                                         "candidate_frontier_id": selected_id, "new_regular_node_id": new_node,
                                          "confirmation_authority": "PROJECT_3M_PARENT_TO_ROBOT_EUCLIDEAN_CAPABILITY",
                                          "commanded_distance_m": segment_commanded_distance,
                                          "geometry_call_count": 0, "GOAL_FINAL_CONFIRMED": 0,
                                          "stop_authorized": False})
                     segment_id = None
-                    selected_id = schedule("GHOST_FINAL_CONFIRMED", step)
+                    selected_id = schedule("CANDIDATE_FRONTIER_FINAL_CONFIRMED", step)
                 elif segment_steps >= SEGMENT_MAX_STEPS:
                     candidate_frontier["state"] = "EXHAUSTED"
-                    candidate_frontier_events.append({"event_type": "GHOST_EXHAUSTED", "step": step,
-                                         "ghost_id": selected_id, "reason": "LOCAL_SEGMENT_STEP_LIMIT"})
+                    candidate_frontier_events.append({"event_type": "CANDIDATE_FRONTIER_EXHAUSTED", "step": step,
+                                         "candidate_frontier_id": selected_id, "reason": "LOCAL_SEGMENT_STEP_LIMIT"})
                     segment_id = None
-                    selected_id = schedule("GHOST_EXHAUSTED", step)
-            per_step.append({"step": action_count, "selected_ghost_id": selected_ghost_before_step,
+                    selected_id = schedule("CANDIDATE_FRONTIER_EXHAUSTED", step)
+            per_step.append({"step": action_count, "selected_candidate_frontier_id": selected_candidate_frontier_before_step,
                              "selected_parent_node_id": parent, "fs_selected_sector": candidate_frontier["sector"],
                              "control_bearing_degrees_right_positive": control_bearing,
                              "control_bearing_source": control_source,
@@ -591,7 +591,7 @@ def run_episode(env: Any, observation: Any, task: dict, phase_root: Path,
                              "bearing_event": bearing_event, "linear_velocity_mps": linear,
                              "angular_velocity_rps": angular, "omniguard_mode": controller_mode,
                              "omniguard_latency_ms": omni_latency, "omnitrav_raw_dist_summary": raw_summary,
-                             "fs_selection_changed_after_frame": selected_id != selected_ghost_before_step,
+                             "fs_selection_changed_after_frame": selected_id != selected_candidate_frontier_before_step,
                              "official_habitat_action": "velocity_control", "action_kind": action_kind,
                              "fs_called_this_frame": False,
                              "ordinary_rgb_frame_bpl_mutation": False,
@@ -658,10 +658,10 @@ def run_episode(env: Any, observation: Any, task: dict, phase_root: Path,
                    "collision_proxy_definition": "RGB-only proxy: commanded linear velocity > 0.01 m/s and cheap RGB novelty < 0.0025; not Habitat collision telemetry",
                    "no_displacement_count": no_displacement_count,
                    "no_displacement_ratio": no_displacement_count / max(len(action_history), 1),
-                   "selected_ghost_change_count": len(selected_change_events),
-                   "regular_node_count": len(regular), "ghost_count": len(candidate_frontiers),
+                   "selected_candidate_frontier_change_count": len(selected_change_events),
+                   "regular_node_count": len(regular), "candidate_frontier_count": len(candidate_frontiers),
                    "directed_edge_count": len(edges),
-                   "ghost_final_confirmed_count": sum(event["event_type"] == "GHOST_FINAL_CONFIRMED" for event in candidate_frontier_events),
+                   "candidate_frontier_final_confirmed_count": sum(event["event_type"] == "CANDIDATE_FRONTIER_FINAL_CONFIRMED" for event in candidate_frontier_events),
                    "known_node_query_count": len(known_events),
                    "known_node_localized_count": sum(event["event_type"] == "KNOWN_NODE_LOCALIZED" for event in known_events),
                    "known_node_geometry_call_count": 0, "known_node_GOAL_FINAL_CONFIRMED": 0,
@@ -670,14 +670,14 @@ def run_episode(env: Any, observation: Any, task: dict, phase_root: Path,
                    "r361_checkpoint_sha256": R361_SHA,
                    "runtime_gt_inputs": [],
                    "gt_local_planner_used": False, "navmesh_used_for_control": False,
-                   "gt_ghost_arrival_used": False, "per_frame_disk_rgb_roundtrip": False,
+                   "gt_candidate_frontier_arrival_used": False, "per_frame_disk_rgb_roundtrip": False,
                    "status": ("ONLINE_GOAL_CONFIRMED_PHYSICAL_SUCCESS" if algorithm_success
                               else "ONLINE_GOAL_CONFIRMED_PHYSICAL_AUDIT_FAIL" if goal_confirmed
                               else "BUDGET_OR_FRONTIER_EXHAUSTED")}
         write_jsonl(run_dir / "per_step.jsonl", per_step)
         write_jsonl(run_dir / "fs_event_log.jsonl", fs_events)
         write_jsonl(run_dir / "node_lifecycle.jsonl", node_events)
-        write_jsonl(run_dir / "ghost_lifecycle.jsonl", candidate_frontier_events)
+        write_jsonl(run_dir / "candidate_frontier_lifecycle.jsonl", candidate_frontier_events)
         write_jsonl(run_dir / "known_node_events.jsonl", known_events)
         write_jsonl(run_dir / "bpl_update_log.jsonl", bpl_events)
         write_jsonl(run_dir / "fs_selection_changes.jsonl", selected_change_events)
@@ -756,21 +756,21 @@ def main() -> None:
     if not weights_root.is_dir():
         raise RuntimeError("PIVOTNAV_WEIGHTS_ROOT must point to the external model directory")
     r361 = R361Adapter(
-        PPC / "r361_runtime", device=f"cuda:{args.gpu}", precision="fp32",
+        PPC, device=f"cuda:{args.gpu}", precision="fp32",
         checkpoint_path=weights_root / "r361/r361_modular.pt",
     )
     r363 = R363BearingAdapter(
-        PPC / "r361_runtime", PPC / "bearing_head",
+        PPC, PPC / "bearing_head",
         adapter_root=PPC, device=f"cuda:{args.gpu}", r361_adapter=r361,
         checkpoint_path=weights_root / "r363/r363_bearing.pt",
     )
     goal_runtime = None
     if args.goal_verifier and not args.disable_goal_verifier:
-        from modules.Panoramic_Place_Compass.production.dynamic_parallax import DynamicParallaxExtractor
-        from modules.Panoramic_Place_Compass.production.arrival_sequence import V7SequenceDecisionEngine
+        from modules.Panoramic_Place_Compass.runtime.dynamic_parallax import DynamicParallaxExtractor
+        from modules.Panoramic_Place_Compass.runtime.arrival_sequence import V7SequenceDecisionEngine
         protocol_path = Path(os.environ.get(
             "PIVOTNAV_ARRIVAL_PROTOCOL",
-            PROJECT_ROOT / "modules/Panoramic_Place_Compass/production/arrival_protocol.json",
+            PROJECT_ROOT / "modules/Panoramic_Place_Compass/runtime/arrival_protocol.json",
         ))
         protocol = json.loads(protocol_path.read_text())
         model = protocol["model"]

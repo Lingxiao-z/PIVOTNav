@@ -14,8 +14,8 @@ from erp_projection import PerspectiveViewSpec, project
 class LightGlueRANSACVerifier:
     def __init__(self, weights_root: Path, device: str = "cuda"):
         import torch
-        from lightglue import LightGlue, SuperPoint
-        from lightglue.utils import numpy_image_to_torch, rbd
+        from modules.Panoramic_Place_Compass.third_party.lightglue import LightGlue, SuperPoint
+        from modules.Panoramic_Place_Compass.third_party.lightglue.utils import numpy_image_to_torch, rbd
 
         self.device = torch.device(device if torch.cuda.is_available() else "cpu")
         self.numpy_image_to_torch = numpy_image_to_torch

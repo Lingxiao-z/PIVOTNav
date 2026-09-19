@@ -11,7 +11,7 @@ from pathlib import Path
 from statistics import mean, median
 from typing import Any, Iterable, Sequence
 
-from pano_vpr_v2.r35_multiframe_evidence import (
+from .r35_multiframe_evidence import (
     AnchorEvidenceState,
     AnchorObservation,
     R35AnchorEvidenceTracker,
