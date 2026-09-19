@@ -82,7 +82,7 @@ class PanoramicPlaceCompass:
         """Return diagnostic evidence; final Stop is owned by the formal verifier."""
         if self.retrieval is None:
             return {"similarity": 0.0, "bearing_deg": 0.0, "arrival_candidate": False}
-        from .runtime.evidence import pair_from_encoding
+        from .localization import pair_from_encoding
 
         current = self.retrieval.encode_query(current_rgb)
         goal = self.retrieval.encode_panorama(goal_rgb)

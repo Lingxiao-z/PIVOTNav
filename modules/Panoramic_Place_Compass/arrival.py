@@ -1490,6 +1490,16 @@ def resolve_protocol_resource(value: str | os.PathLike[str]) -> Path:
     return (ARRIVAL_PROTOCOL.parent / candidate).resolve()
 
 
+def resolve_arrival_model_path(
+    configured_model: str | os.PathLike[str] | None,
+    protocol_path: Path,
+    default_model: str | os.PathLike[str],
+) -> Path:
+    """Resolve an explicit or protocol-declared model without using cwd for relative paths."""
+    candidate = Path(configured_model if configured_model else default_model).expanduser()
+    return candidate if candidate.is_absolute() else (protocol_path.parent / candidate).resolve()
+
+
 def typed_commit_payload(target_kind: str, stop_authorized: bool) -> dict[str, Any]:
     """Normalize the frozen coordinator result to the V4 typed event contract."""
     if target_kind == "ghost":
@@ -1610,11 +1620,7 @@ class GoalImageArrivalVerifier:
             device=str(verifier_device), commanded_forward_distance_per_step_m=0.16
         )
         configured_model = os.environ.get("PIVOTNAV_ARRIVAL_MODEL")
-        model_path = (
-            Path(configured_model).expanduser().resolve()
-            if configured_model
-            else resolve_protocol_resource(model["path"])
-        )
+        model_path = resolve_arrival_model_path(configured_model, ARRIVAL_PROTOCOL, model["path"])
         if not model_path.is_file():
             raise RuntimeError(
                 "arrival model is not configured; set PIVOTNAV_ARRIVAL_MODEL "
