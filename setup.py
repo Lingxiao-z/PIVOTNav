@@ -7,4 +7,10 @@ setup(
     py_modules=["main", "navigation", "habitat_gs"],
     packages=find_packages(include=["modules", "modules.*"]),
     package_data={"modules.Panoramic_Place_Compass": ["arrival_protocol.json"]},
+    entry_points={
+        "console_scripts": [
+            "pivotnav=main:main",
+            "pivotnav-fs-worker=modules.Navigable_Curiosity_Field.fs_worker:main",
+        ]
+    },
 )

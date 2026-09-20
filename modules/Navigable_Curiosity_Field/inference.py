@@ -37,7 +37,14 @@ class NavigableCuriosityField:
                 os.environ.get("PIVOTNAV_FS_PACKAGE_ROOT", self.weights_root),
             )
         ).expanduser()
-        self._predictor = B2FGFSInference(package_root, device=self.device)
+        self._predictor = B2FGFSInference(
+            package_root,
+            device=self.device,
+            checkpoint_path=self.config.get("fs_checkpoint") or os.environ.get("PIVOTNAV_FS_CHECKPOINT"),
+            expected_checkpoint_sha256=self.config.get("fs_sha256") or os.environ.get("PIVOTNAV_FS_SHA256"),
+            dinov2_weight=self.config.get("dinov2_weight") or os.environ.get("PIVOTNAV_DINOV2_WEIGHT"),
+            dinov2_repo=self.config.get("dinov2_repo") or os.environ.get("PIVOTNAV_DINOV2_REPO"),
+        )
 
     def predict(self, current_rgb: np.ndarray, goal_rgb: np.ndarray) -> dict[str, np.ndarray]:
         if self._predictor is None and not self._weights_enabled:

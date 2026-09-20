@@ -28,6 +28,9 @@ arrival_frozen_root: ""
 arrival_dependency_root: ""
 arrival_protocol: ""
 arrival_model: ""
+r361_sha256: ""
+r363_sha256: ""
+fs_sha256: ""
 geometry:
   min_inliers: 8
   min_grid_coverage: 0.02

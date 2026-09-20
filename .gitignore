@@ -27,3 +27,5 @@ _server_sources/
 validation/
 .env
 .venv/
+build/
+*.egg-info/

@@ -6,6 +6,7 @@ import io
 import json
 import os
 import subprocess
+import shutil
 import sys
 from pathlib import Path
 from typing import Any
@@ -39,8 +40,10 @@ def write_jsonl(path: Path, rows: list[dict]) -> None:
 
 class ExpandedWorkerClient:
     def __init__(self, device: str, stderr_path: Path) -> None:
-        worker = Path(os.environ.get("PIVOTNAV_FS_WORKER", ""))
-        if not worker.is_file():
+        worker_value = os.environ.get("PIVOTNAV_FS_WORKER", "")
+        worker = Path(worker_value)
+        executable = shutil.which(worker_value) if worker_value else None
+        if not worker.is_file() and not executable:
             raise RuntimeError("PIVOTNAV_FS_WORKER must point to the external FS worker script")
         stderr_path.parent.mkdir(parents=True, exist_ok=True)
         environment = dict(os.environ)
@@ -52,8 +55,9 @@ class ExpandedWorkerClient:
         # accepts ``--device``. The public worker also accepts an optional
         # package root. Probe the CLI once so the client speaks both contracts
         # without changing the worker's model or preprocessing behavior.
+        worker_command = [sys.executable, str(worker)] if worker.is_file() else [str(executable)]
         help_result = subprocess.run(
-            [sys.executable, str(worker), "--help"],
+            [*worker_command, "--help"],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
@@ -63,7 +67,7 @@ class ExpandedWorkerClient:
         package_root = os.environ.get("PIVOTNAV_FS_PACKAGE_ROOT")
         if supports_package_root and not package_root:
             raise RuntimeError("PIVOTNAV_FS_PACKAGE_ROOT is required for this FS worker")
-        command = [sys.executable, str(worker)]
+        command = list(worker_command)
         if supports_package_root:
             command.extend(["--package-root", package_root])
         command.extend(["--device", worker_device])
@@ -80,7 +84,8 @@ class ExpandedWorkerClient:
         ready = self._read()
         if not ready.get("ready"):
             raise RuntimeError(f"FS_WORKER_NOT_READY:{ready}")
-        if ready.get("checkpoint_sha256") not in (None, CHECKPOINT_SHA):
+        expected_sha = os.environ.get("PIVOTNAV_FS_SHA256", CHECKPOINT_SHA)
+        if ready.get("checkpoint_sha256") not in (None, expected_sha):
             raise RuntimeError(f"FS_CHECKPOINT_MISMATCH:{ready}")
         self.ready = ready
         self.inference_count = 0

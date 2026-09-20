@@ -12,3 +12,7 @@ DINOv2 is an external dependency: set `PIVOTNAV_DINOV2_REPO` to the pinned
 official checkout and `PIVOTNAV_DINOV2_WEIGHT` to its checkpoint. The unified
 training entry is under `training/`; historical revision scripts are not part
 of the release. Training data is not included.
+
+The public training directory now includes the formal R3 retrieval Phase
+A/B/C scripts plus unified yaw, bearing, arrival, V7, evaluation, and package
+entry points. See [`../../docs/TRAINING.md`](../../docs/TRAINING.md).

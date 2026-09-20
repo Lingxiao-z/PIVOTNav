@@ -43,8 +43,6 @@ from modules.Topological_Belief_Cascade.topology import (  # noqa: E402
 from modules.Panoramic_Place_Compass.arrival import GoalImageArrivalVerifier  # noqa: E402
 from habitat_gs import env_config, _patch_habitat_opencv_compatibility  # noqa: E402
 
-CHECKPOINT_SHA = "44aa451546691f35659ce1ecc0d616d67d706217ceb5a8f2ed43cba9b132760f"
-R361_SHA = "4090261bcef45f70ba771533d1283a3ebe2b5e7d84c400d829cac25e01d79f4a"
 SEGMENT_DISTANCE_M = 3.0
 SEGMENT_MAX_STEPS = 480
 BLOCKED_FRAME_LIMIT = 12
@@ -669,8 +667,9 @@ def run_episode(env: Any, observation: Any, task: dict, phase_root: Path,
                    "known_node_localized_count": sum(event["event_type"] == "KNOWN_NODE_LOCALIZED" for event in known_events),
                    "known_node_geometry_call_count": 0, "known_node_GOAL_FINAL_CONFIRMED": 0,
                    "known_node_stop_authorized": False, "ordinary_frame_bpl_mutation_count": 0,
-                   "bpl_update_count": len(bpl_events), "checkpoint_sha256": CHECKPOINT_SHA,
-                   "r361_checkpoint_sha256": R361_SHA,
+                   "bpl_update_count": len(bpl_events),
+                   "checkpoint_sha256": fs_model.ready.get("checkpoint_sha256"),
+                   "r361_checkpoint_sha256": r361.checkpoint_sha256,
                    "runtime_gt_inputs": [],
                    "gt_local_planner_used": False, "navmesh_used_for_control": False,
                    "gt_candidate_frontier_arrival_used": False, "per_frame_disk_rgb_roundtrip": False,

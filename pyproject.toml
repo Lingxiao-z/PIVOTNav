@@ -19,6 +19,10 @@ dependencies = [
   "torchvision>=0.15",
 ]
 
+[project.scripts]
+pivotnav = "main:main"
+pivotnav-fs-worker = "modules.Navigable_Curiosity_Field.fs_worker:main"
+
 [tool.setuptools]
 py-modules = ["main", "navigation", "habitat_gs"]
 include-package-data = true

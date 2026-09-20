@@ -52,6 +52,9 @@ arrival_frozen_root: /path/to/arrival-verifier-runtime
 arrival_dependency_root: /path/to/arrival-runtime-dependencies
 arrival_protocol: /path/to/arrival_protocol.json
 arrival_model: /path/to/GRADIENT_BOOSTING_SEQUENCE_V7.joblib
+r361_sha256: sha256-of-r361_modular.pt
+r363_sha256: sha256-of-r363_bearing.pt
+fs_sha256: sha256-of-fgfs-checkpoint
 # Optional: an external parallax protocol for the offline extractor CLI.
 # parallax_protocol: /path/to/parallax_protocol.json
 ```
@@ -88,3 +91,9 @@ Medium 1500, Hard 2000, Hard+ 3000 and Hard++ 4000.
 
 Training and evaluation entry points are kept inside their corresponding
 paper-named module directories.
+
+## Training
+
+The complete public data collection, staged training, evaluation, and
+checkpoint packaging commands are documented in [`docs/TRAINING.md`](docs/TRAINING.md).
+Habitat-GS scenes and large generated checkpoints remain external.

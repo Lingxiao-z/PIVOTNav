@@ -452,6 +452,10 @@ class B2FGFSInference(nn.Module):
         *,
         device: str | torch.device = "cuda",
         fg_threshold: float = 0.5,
+        checkpoint_path: str | Path | None = None,
+        expected_checkpoint_sha256: str | None = None,
+        dinov2_weight: str | Path | None = None,
+        dinov2_repo: str | Path | None = None,
     ) -> None:
         super().__init__()
         self.package_root = Path(package_root).resolve()
@@ -460,10 +464,13 @@ class B2FGFSInference(nn.Module):
         if not 0.0 <= self.fg_threshold <= 1.0:
             raise ValueError("fg_threshold must be in [0,1]")
 
-        checkpoint_path = self.package_root / "b2/checkpoints/best.pt"
-        weight_path = self.package_root / "dinov2/dinov2_vits14_pretrain.pth"
-        repository_path = self.package_root / "dinov2/repository"
-        if _sha256(checkpoint_path) != B2_CHECKPOINT_SHA256:
+        checkpoint_path = Path(checkpoint_path or self.package_root / "b2/checkpoints/best.pt").expanduser().resolve()
+        weight_path = Path(dinov2_weight or self.package_root / "dinov2/dinov2_vits14_pretrain.pth").expanduser().resolve()
+        repository_path = Path(dinov2_repo or self.package_root / "dinov2/repository").expanduser().resolve()
+        expected_checkpoint_sha256 = expected_checkpoint_sha256 or os.environ.get(
+            "PIVOTNAV_FS_SHA256", B2_CHECKPOINT_SHA256
+        )
+        if _sha256(checkpoint_path) != expected_checkpoint_sha256:
             raise RuntimeError("frozen B2 checkpoint SHA256 mismatch")
         if _sha256(weight_path) != DINO_WEIGHT_SHA256:
             raise RuntimeError("official DINOv2 weight SHA256 mismatch")

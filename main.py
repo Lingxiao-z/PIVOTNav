@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import sys
 import tempfile
 from pathlib import Path
@@ -94,7 +95,18 @@ def main() -> None:
     for key, env_key in external_env.items():
         value = config.get(key) or os.environ.get(env_key)
         if value:
-            os.environ[env_key] = str(Path(value).expanduser().resolve())
+            if key.endswith("_worker") and shutil.which(str(value)):
+                os.environ[env_key] = str(value)
+            else:
+                os.environ[env_key] = str(Path(value).expanduser().resolve())
+    for key, env_key in {
+        "r361_sha256": "PIVOTNAV_R361_SHA256",
+        "r363_sha256": "PIVOTNAV_R363_SHA256",
+        "fs_sha256": "PIVOTNAV_FS_SHA256",
+    }.items():
+        value = config.get(key) or os.environ.get(env_key)
+        if value:
+            os.environ[env_key] = str(value)
     if os.environ.get("PIVOTNAV_DINOV2_WEIGHT"):
         os.environ["PANORAMIC_VPR_DINOV2_WEIGHT"] = os.environ["PIVOTNAV_DINOV2_WEIGHT"]
     if os.environ.get("PIVOTNAV_DINOV2_REPO"):

@@ -143,6 +143,7 @@ class R361Adapter:
         device: str = "cuda:0",
         precision: str = "fp32",
         checkpoint_path: str | Path | None = None,
+        expected_sha256: str | None = None,
     ) -> None:
         root = Path(package_root).resolve()
         python_root = root / "python"
@@ -155,10 +156,12 @@ class R361Adapter:
         self.root = root
         self.checkpoint = Path(checkpoint_path).expanduser().resolve() if checkpoint_path else root / "r361_modular.pt"
         actual_sha256 = hashlib.sha256(self.checkpoint.read_bytes()).hexdigest()
-        if actual_sha256 != EXPECTED_SHA256:
+        expected_sha256 = expected_sha256 or os.environ.get("PIVOTNAV_R361_SHA256", EXPECTED_SHA256)
+        if actual_sha256 != expected_sha256:
             raise RuntimeError(
-                f"R36.1 checkpoint SHA256 mismatch: expected {EXPECTED_SHA256}, got {actual_sha256}"
+                f"R36.1 checkpoint SHA256 mismatch: expected {expected_sha256}, got {actual_sha256}"
             )
+        self.checkpoint_sha256 = actual_sha256
         self.device = torch.device(device)
         if self.device.type == "cpu":
             os.environ.setdefault("XFORMERS_DISABLED", "1")
@@ -270,7 +273,7 @@ class R361Adapter:
     def metadata(self) -> dict[str, Any]:
         return {
             **self.retrieval_runtime.metadata(),
-            "checkpoint_sha256": EXPECTED_SHA256,
+            "checkpoint_sha256": self.checkpoint_sha256,
             "integration_device": str(self.device),
             "integration_precision": "fp32",
             "input_layout": "HWC RGB uint8 -> CHW RGB uint8",
@@ -377,6 +380,7 @@ class R363BearingAdapter:
         device: str = "cuda:0",
         r361_adapter: Any | None = None,
         checkpoint_path: str | Path | None = None,
+        expected_sha256: str | None = None,
     ) -> None:
         adapter_root = Path(adapter_root).resolve()
         r363_root = Path(r363_package_root).resolve()
@@ -396,14 +400,15 @@ class R363BearingAdapter:
 
         checkpoint = Path(checkpoint_path).expanduser().resolve() if checkpoint_path else r363_root / "r363_bearing.pt"
         actual_sha = hashlib.sha256(checkpoint.read_bytes()).hexdigest()
-        if actual_sha != R363_SHA256:
+        expected_sha256 = expected_sha256 or os.environ.get("PIVOTNAV_R363_SHA256", R363_SHA256)
+        if actual_sha != expected_sha256:
             raise RuntimeError(
-                f"R36.3 checkpoint SHA mismatch: expected {R363_SHA256}, got {actual_sha}"
+                f"R36.3 checkpoint SHA mismatch: expected {expected_sha256}, got {actual_sha}"
             )
         payload = torch.load(checkpoint, map_location="cpu", weights_only=False)
         if payload.get("schema_version") != "r363_limited_unfreeze_checkpoint_v1":
             raise RuntimeError("unsupported R36.3 checkpoint schema")
-        if payload.get("frozen_r361_checkpoint_sha256") != R361_SHA256:
+        if payload.get("frozen_r361_checkpoint_sha256") != self.retrieval.checkpoint_sha256:
             raise RuntimeError("R36.3 was not trained from the frozen R36.1 package")
 
         self.bearing_backbone = copy.deepcopy(
@@ -524,7 +529,7 @@ class R363BearingAdapter:
             **self.retrieval.metadata(),
             "bearing_model": "R36.3 private block11/final-norm + patch bearing head",
             "bearing_checkpoint_sha256": self.r363_checkpoint_sha256,
-            "retrieval_checkpoint_sha256": R361_SHA256,
+            "retrieval_checkpoint_sha256": self.retrieval.checkpoint_sha256,
             "retrieval_descriptor_modified": False,
         }
 

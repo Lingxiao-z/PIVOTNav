@@ -8,3 +8,6 @@ state, candidate-frontier events, scheduling, and graph backends, while
 
 The default is `topology_backend: original`. Use `accelerated` only for the
 online-index benchmark or an explicitly selected navigation run.
+
+This module has no independent learned checkpoint. Its visual models are
+trained by Panoramic Place Compass and Navigable Curiosity Field.
